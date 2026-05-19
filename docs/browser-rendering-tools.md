@@ -5,7 +5,7 @@ Chromium instance— through
 [Cloudflare Browser Run](https://developers.cloudflare.com/browser-run/).
 
 Requests are billed to and observable on your Cloudflare account
-(Workers Logs, Logpush, the Browser Rendering dashboard).
+(Workers Logs, Logpush, the Browser Run dashboard).
 
 The built-in `web_fetch` runs on Anthropic's infrastructure — your
 account never sees the request and you have no audit trail. **Prefer
@@ -37,7 +37,7 @@ Rendering being wired up (see [Setup](#setup) below).
 
 Direct access to the
 [Chrome DevTools Protocol](https://chromedevtools.github.io/devtools-protocol/)
-through Browser Rendering. Use these for scripted browsing flows the
+through Browser Run. Use these for scripted browsing flows the
 content-fetching tools don't cover (clicks, form fills, multi-page
 navigation). Requires both the `LOADER` and `BROWSER` bindings.
 
@@ -46,9 +46,9 @@ navigation). Requires both the `LOADER` and `BROWSER` bindings.
 | `browser_search` | Query the CDP spec for commands, events, and types |
 | `browser_execute` | Run CDP commands against a live browser session |
 
-## Two paths to Browser Rendering
+## Two paths to Browser Run
 
-Cloudflare exposes Browser Rendering two ways and both are first-class.
+Cloudflare exposes Browser Run two ways and both are first-class.
 The control plane accepts either; configure whichever fits your account.
 
 ### Path A — REST API ("Quick Actions")
@@ -68,7 +68,7 @@ expose directly (PDF, scrape, snapshot).
 npx wrangler secret put CLOUDFLARE_API_TOKEN
 ```
 
-The token needs the **Account → Browser Rendering → Edit** permission.
+The token needs the **Account → Browser Run → Edit** permission.
 
 ### Path B — Workers Binding + Puppeteer
 
@@ -158,7 +158,7 @@ Returns a JSON document block matching Anthropic's built-in
 ```
 
 PDFs are detected via HEAD content-type or `.pdf` extension and
-returned as base64 — Browser Rendering's markdown endpoint can't
+returned as base64 — Browser Run's markdown endpoint can't
 extract PDF text, so the control plane bypasses BR for PDFs and
 fetches the URL directly from the parent Worker DO. Same posture as
 the BR-mediated path: visible on your Cloudflare account but not
@@ -216,7 +216,7 @@ this when you need to discover what CDP command does what — handy for
 the model when it's writing the next `browser_execute` call.
 
 Available on both backends. Requires the parent Worker to have
-`LOADER` (Worker Loader) and `BROWSER` (Browser Rendering) bindings —
+`LOADER` (Worker Loader) and `BROWSER` (Browser Run) bindings —
 the factory spins up a fresh Worker isolate via `LOADER` and calls
 `BROWSER` directly, so the MicroVM container is uninvolved.
 
@@ -237,14 +237,13 @@ requirement as `browser_search`.
 ## Why `cf_*` over the built-in `web_fetch`
 
 - **Observable.** Every fetch shows up in Workers Logs and Logpush on
-  your account, plus the Browser Rendering dashboard. The built-in
+  your account, plus the Browser Run dashboard. The built-in
   fetches happen on Anthropic's infrastructure and you never see them.
-- **Renders JavaScript.** Browser Rendering drives a real Chrome.
+- **Renders JavaScript.** Browser Run drives a real Chrome.
   Many modern sites are useless to the built-in `web_fetch` because
   they render content client-side.
-- **Cost transparency.** Browser Rendering billing flows through your
-  account; you can cap and observe it. The built-in's costs are
-  bundled into your Anthropic bill.
+- **Cost transparency.** Browser Run billing flows through your
+  account.
 
 The "prefer cf_* when present" preference is baked into the Isolate
 and MicroVM system prompts so the model reaches for the right tool
@@ -264,7 +263,7 @@ automatically.
 - **CDP tools return "endpoint requires CLOUDFLARE_API_TOKEN"** — the
   `cf_browser_*` tools need the `LOADER` binding for the
   sandboxed JS host AND a browser path. Add the missing binding.
-- **PDF returns garbled text** — PDFs route around Browser Rendering
+- **PDF returns garbled text** — PDFs route around Browser Run
   and use a direct fetch. If the PDF is gated behind authentication,
   the agent has to fetch it through a different path (e.g.
   `call_service` to a private service that already has access).
