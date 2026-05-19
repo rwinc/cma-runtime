@@ -22,10 +22,12 @@
   // catch-all route forwards into this Worker. Leaving it unset disables
   // the inbox-side of the email tools (send still works if EMAIL_FROM /
   // SEND_EMAIL are configured).
-  "vars": {
-    "EMAIL_DOMAIN": "",
-    "EMAIL_FROM": "",
-  },
+
+  // "vars": {
+  //   "EMAIL_DOMAIN": "",
+  //   "EMAIL_FROM": "",
+  // },
+
   // Static assets — Vite-built React + Kumo UI. The frontend is a SPA, so
   // unmatched paths fall back to /index.html and react-router takes over
   // client-side. Without this, /sandboxes/<id> would 404 on refresh.
@@ -46,19 +48,32 @@
   // KV: SECRETS holds named secret values used by header-injection rules and
   // the proxy function's env. EGRESS_POLICIES holds the policy JSON keyed by
   // `policy:<id>`.
+  //
+  // The empty `"id": ""` placeholders are intentional. `scripts/ensure-kv.mjs`
+  // runs on `prebuild` and patches the real namespace IDs in place — either
+  // by adopting a namespace that already exists in the account (case the
+  // Workers Builds / Deploy to Cloudflare flow hits on its second deploy) or
+  // by creating a fresh one named `<worker-name>-<binding>`. Leaving the
+  // placeholders means wrangler.jsonc can be committed without account-
+  // specific IDs.
   "kv_namespaces": [
     {
       "binding": "SECRETS",
+      "id": "",
     },
     {
       "binding": "EGRESS_POLICIES",
+      "id": "",
     },
   ],
-  // D1: webhook events + session metadata.
+  // D1: webhook events + session metadata. `database_id` is patched on
+  // `prebuild` by `scripts/ensure-d1.mjs` (same lifecycle as the KV
+  // namespaces above).
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "claude-managed-agents-db",
+      "database_id": "",
       "migrations_dir": "./migrations",
     },
   ],

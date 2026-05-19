@@ -10,7 +10,7 @@
     "dev": "npm run build && wrangler dev",
     "start": "npm run dev",
     "build": "vite build",
-    "prebuild": "node scripts/sync-vpc-bindings.mjs && node scripts/copy-redoc.mjs",
+    "prebuild": "node scripts/ensure-kv.mjs && node scripts/ensure-d1.mjs && node scripts/sync-vpc-bindings.mjs && node scripts/copy-redoc.mjs",
     "vpc:sync": "node scripts/sync-vpc-bindings.mjs",
     "frontend:dev": "vite",
     "cf-typegen": "wrangler types",
@@ -45,12 +45,6 @@
       },
       "WEBHOOK_SECRET": {
         "description": "HMAC signing secret from the [Anthropic Console webhook settings](https://platform.claude.com/settings/workspaces/default/webhooks). Set the webhook URL to `https://<your-worker>.workers.dev/webhooks` after the first deploy completes."
-      },
-      "EMAIL_DOMAIN": {
-        "description": "Optional. Zone the per-session inbox addresses are minted under (e.g. `agents.example.com`). Required for the `cf_email_inbox` / `cf_email_read` tools and the catch-all email route. Leave blank to disable the inbox side of the email tools."
-      },
-      "EMAIL_FROM": {
-        "description": "Optional. Default sender address for `cf_email_send`. Must belong to a zone you control via Cloudflare Email Routing. Leave blank to require the agent to pass `from` explicitly on every send."
       },
       "CLOUDFLARE_ACCOUNT_ID": {
         "description": "Optional. Required only for the MicroVM snapshot system (R2 presigned URLs). Found in the URL of your Cloudflare dashboard. Skip if you're running Isolate-only sandboxes."

@@ -77,13 +77,27 @@ npm run deploy
 
 `npm run deploy` builds your base sandbox container image (Docker
 required), deploys the Worker, and applies D1 migrations via the
-`postdeploy` hook. Wrangler auto-provisions the D1 database, KV
-namespaces, and R2 bucket declared in `wrangler.jsonc` on first deploy
-(requires wrangler 4.45+; see
-[auto-provisioning](https://developers.cloudflare.com/workers/wrangler/configuration/#automatic-provisioning),
-currently open beta). The worker won't function until you finish the
-remaining steps, but the deploy gives you the
-`https://<your-worker>.workers.dev` URL you'll need for the webhook.
+`postdeploy` hook. The committed `wrangler.jsonc` deliberately leaves
+KV `id` fields and the D1 `database_id` empty — `scripts/ensure-kv.mjs`
+and `scripts/ensure-d1.mjs` run on `prebuild` and patch the real IDs
+in (adopting any namespaces / databases that already exist by name,
+creating fresh ones otherwise). This keeps subsequent button-deploys
+and `npm run deploy` runs idempotent even though Workers Builds
+doesn't write resource IDs back to your repo. R2 buckets are bound by
+name (no ID lookup needed) and are auto-created by wrangler.
+
+If you're on a Cloudflare account that has access to more than one
+organisation, set `CLOUDFLARE_ACCOUNT_ID` before running so the ensure
+scripts know which account to talk to:
+
+```sh
+export CLOUDFLARE_ACCOUNT_ID=<your-account-id>
+npm run deploy
+```
+
+The worker won't function until you finish the remaining steps, but
+the deploy gives you the `https://<your-worker>.workers.dev` URL
+you'll need for the webhook.
 
 **2. Create an Anthropic environment and webhook.** Create a
 "Self-managed" environment in the
@@ -192,6 +206,45 @@ See [Cloudflare Access docs](./docs/securing-access.md) for more information.
 
 **9. Customize the control plane (optional)** Fork this repo
 and customize it to suit your needs or add custom tools.
+
+## Common pitfalls
+
+A handful of edge cases that bite people, most of them around the
+empty `id` / `database_id` placeholders in `wrangler.jsonc`:
+
+- **Running `npx wrangler <cmd>` directly fails.** The committed
+  `wrangler.jsonc` has empty KV `id` and `database_id` fields by design;
+  wrangler refuses to load that without first running the patch
+  scripts. Use the `npm run …` wrappers (which trigger `prebuild`), or
+  run `npm run prebuild` once after cloning to populate the IDs in
+  your working tree. `npm run cf-typegen` has the same caveat — run
+  `prebuild` first if it complains about missing IDs.
+- **Don't commit the patched IDs.** After a local deploy the scripts
+  write real namespace / database IDs into your working copy of
+  `wrangler.jsonc`. Those values are account-specific. If you're
+  contributing PRs back to the canonical repo, leave them out of the
+  commit (`git checkout wrangler.jsonc` or stage selectively). If
+  you're working on a personal fork, committing them is fine — your
+  Workers Builds rebuilds will no-op-fast on them.
+- **Switching Cloudflare accounts.** The prebuild fast path skips the
+  API check when IDs are already populated locally. If you switch the
+  `CLOUDFLARE_ACCOUNT_ID` you're deploying to, run
+  `git checkout wrangler.jsonc` first so the IDs reset to empty and
+  the scripts repopulate against the new account. Otherwise wrangler
+  will try the old account's IDs against the new account and fail with
+  permission errors.
+- **Multi-account local dev.** If your Cloudflare login has access to
+  more than one account, the prebuild scripts can't pick one in
+  non-interactive mode. Set `CLOUDFLARE_ACCOUNT_ID` (the script's
+  error message lists the candidates) before running `npm run deploy`
+  or `npm run dev`.
+- **Renaming the worker via the Deploy to Cloudflare form.** Safe to
+  do — Cloudflare's setup page lets you pick a Worker name to avoid
+  collisions with an existing one. The KV namespaces and D1 database
+  get the new name as their prefix because the ensure scripts read
+  `name` from `wrangler.jsonc` at build time. Just remember to use the
+  rewritten URL (`https://<your-chosen-name>.<account>.workers.dev`)
+  when configuring the Anthropic webhook in step 2.
 
 ## Going deeper
 
