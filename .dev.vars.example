@@ -1,0 +1,29 @@
+ENVIRONMENT_ID=<your-anthropic-environment-id>
+ANTHROPIC_ENVIRONMENT_KEY=<your-anthropic-environment-key>
+ANTHROPIC_API_KEY=<your-anthropic-api-key>
+
+WEBHOOK_SECRET=<your-anthropic-webhook-signing-secret>
+
+# Required (unless you're exclusively using Isolate sandboxes) —
+# Sandbox snapshot system (R2). MicroVM /workspace is discarded on
+# every container hibernation without this, so wire it up as part of
+# onboarding. Isolate sessions persist via Durable Object SQLite
+# storage and don't need R2; skip this block if you're not running
+# MicroVM backends. See README → "Provision the R2 snapshot bucket"
+# for the bucket-creation step. These four values back the
+# presigned-URL path used in production; for `wrangler dev` you can
+# leave them empty and the Sandbox SDK falls back to the BACKUP_BUCKET
+# R2 binding (`localBucket: true`), but the bucket itself must exist.
+CLOUDFLARE_ACCOUNT_ID=<your-cf-account-id>
+R2_ACCESS_KEY_ID=<r2-access-key-id>
+R2_SECRET_ACCESS_KEY=<r2-secret-access-key>
+BACKUP_BUCKET_NAME=<bucket-name-matching-r2_buckets[].bucket_name>
+
+# Optional - Browser Run REST tools (screenshot, fetch_to_markdown, browse, web_fetch).
+# CLOUDFLARE_API_TOKEN=<api-token-with-Account.Browser-Rendering:Edit>
+
+# Optional — agent inbox sender. Defaults to <sessionId>@<EMAIL_DOMAIN>.
+# EMAIL_FROM=agent@agents.example.com
+
+# Optional — fallback inbox for stray (non-session) email arriving on the catch-all.
+# EMAIL_FORWARD=ops@example.com
