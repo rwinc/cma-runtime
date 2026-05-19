@@ -41,17 +41,16 @@ In the Cloudflare dashboard:
 3. Add a **catch-all** route, set the action to **Send to a Worker**,
    and pick this Worker. That's what feeds the inbox.
 
-### 2. Set the bindings + vars in `wrangler.jsonc`
+### 2. Set the vars in `wrangler.jsonc`
+
+The `SEND_EMAIL` and `DB` bindings ship declared by default. You only
+need to set the email vars:
 
 ```jsonc
-{
-  "send_email": [{ "name": "SEND_EMAIL" }],
-  "d1_databases": [{ "binding": "DB", "database_name": "...", "database_id": "..." }],
-  "vars": {
-    "EMAIL_DOMAIN": "agents.example.com",
-    "EMAIL_FROM": "noreply@example.com",
-    "EMAIL_FORWARD": "ops@example.com"
-  }
+"vars": {
+  "EMAIL_DOMAIN": "agents.example.com",
+  "EMAIL_FROM": "noreply@example.com",
+  "EMAIL_FORWARD": "ops@example.com"
 }
 ```
 
@@ -59,9 +58,8 @@ In the Cloudflare dashboard:
   addresses under. The catch-all route on that zone has to point at
   this Worker.
 - `EMAIL_FROM` is the default sender for `email_send` when the
-  agent's primary alias hasn't been resolved yet (e.g. a session that
-  fires `email_send` before the webhook resolver has cached
-  `agent_id`). Must belong to a zone you control.
+  agent's primary alias hasn't been resolved yet. Must belong to a
+  zone you control.
 - `EMAIL_FORWARD` is optional — mail with no routable destination gets
   forwarded here. Without it, unroutable mail is dropped.
 
@@ -80,7 +78,7 @@ After a session has run end-to-end at least once, you can look up the agent's
 public address with:
 
 ```sh
-npx wrangler d1 execute <db> \
+npx wrangler d1 execute claude-managed-agents-db --remote \
   --command "SELECT alias FROM agent_emails WHERE agent_id='agent_xxx' AND is_primary=1"
 ```
 
@@ -90,9 +88,8 @@ Each agent owns a public address `<alias>@<EMAIL_DOMAIN>`. The alias is
 auto-derived from the agent id (`agent-<shortHash>`) and stored in the
 `agent_emails` table on first sighting.
 
-When mail arrives, it is matched with a previous session if one exists.
-To determine if a previous session matches, it looks a the following signals
-in order:
+When mail arrives, the handler tries to match it to an existing
+session using these signals in order:
 
 1. **Session-specific subaddressing** — `<alias>+<sessionId>@<EMAIL_DOMAIN>`
    pins the message to a specific session, no matter what the headers

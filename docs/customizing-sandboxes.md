@@ -58,12 +58,12 @@ each agent picks up the new image.
 "containers": [{
   "class_name": "Sandbox",
   "image": "./Dockerfile",
-  "instance_type": "standard-2",
+  "instance_type": "standard-1",
   "max_instances": 100
 }]
 ```
 
 * `instance_type` — the sandbox size (see [instance type docs](https://developers.cloudflare.com/containers/platform-details/instance-types/)).
-* `max_instances` — the maximum number of concurrent instances. Allows you to control possibly runaway cost.
+* `max_instances` — caps concurrent instances to keep runaway costs in check.
 
-To change this, edit `wrangler.jsonc` and redeploy.
+Edit `wrangler.jsonc` and redeploy to apply changes.

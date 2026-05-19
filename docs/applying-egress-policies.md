@@ -45,7 +45,7 @@ You can connect to services that are not exposed to the public internet via
 Workers VPC and Workers Mesh. This allows your sandboxes to access services
 in any cloud or on-prem datacenter over a private network.
 
-See [Connecting to Private Services](/docs/connecting-to-private-services) for
+See [Connecting to Private Services](./connecting-to-private-services.md) for
 details.
 
 ### Custom proxies
@@ -167,8 +167,9 @@ Each matcher has three parts:
   for `is-one-of`).
 
 Matchers within one policy are **AND**-ed: every matcher must be true
-for the policy to apply. Policies are evaluated in the order you save
-them, and the first one whose matchers all pass wins.
+for the policy to apply. Specific policies (with at least one `applyTo`
+matcher) are tried first; the first one whose matchers all pass wins.
+If none match, the first `appliesToAll` catch-all policy is used.
 
 To set this up in the dashboard, open the policy editor and add one
 or more rows under **Apply to**. Pick the field from the dropdown

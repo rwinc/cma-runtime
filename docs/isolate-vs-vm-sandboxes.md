@@ -105,33 +105,8 @@ where it left off because SQLite state survives.
 
 ## Configuring the MicroVM container
 
-Container image and instance size live in `wrangler.jsonc`:
-
-```jsonc
-"containers": [{
-  "class_name": "Sandbox",
-  "image": "./Dockerfile",
-  "instance_type": "standard-2",
-  "max_instances": 100
-}]
-```
-
-The default `Dockerfile` extends the Cloudflare Sandbox SDK base image
-and installs the Anthropic `ant` CLI. Bake in additional tools by
-editing it:
-
-```dockerfile
-FROM docker.io/cloudflare/sandbox:0.9.2
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    postgresql-client \
-    redis-tools \
- && rm -rf /var/lib/apt/lists/*
-
-# existing ant CLI install …
-```
-
-Then `npm run deploy` rebuilds the image.
+Container image and instance size live in `wrangler.jsonc`. See
+[Customizing Sandboxes](./customizing-sandboxes.md) for the full reference.
 
 ## Picking a backend
 

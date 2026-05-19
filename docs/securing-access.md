@@ -115,22 +115,19 @@ side-effects.
 before touching D1 or KV:
 
 ```ts
-// src/api/index.ts
+// src/helpers.ts
 const SESSION_ID_REGEX = /^(?:session|sesn)_[^/]+$/;
 const AGENT_ID_REGEX   = /^agent_[^/]+$/;
 const SECRET_KEY_REGEX = /^[A-Za-z0-9._:-]{1,128}$/;
 const POLICY_ID_REGEX  = /^pol_[A-Za-z0-9._-]{1,64}$/;
 ```
 
-**Environment key.** Under the 0.96 SDK / ant 1.8 release a single
-environment key (`ANTHROPIC_ENVIRONMENT_KEY`) authenticates every call
-the control plane makes — work poll, ack, heartbeat, force-stop, the per-session
-event stream, and skill download. The Worker holds the key as a secret
-and forwards it into MicroVM sandboxes as `ANTHROPIC_ENVIRONMENT_KEY` so
-`ant beta:worker run` can authenticate the entire flow. Isolate sandboxes
-construct their SDK client with the same key in-Worker — the key never
-leaves the control plane process. There is no per-work-item session token any
-more; the previous `sessions_token` plumbing has been removed.
+**Environment key.** `ANTHROPIC_ENVIRONMENT_KEY` authenticates every
+call the control plane makes (poll, ack, heartbeat, force-stop, the
+per-session event stream, skill download). The Worker holds it as a
+secret and forwards it into MicroVM sandboxes so `ant beta:worker run`
+can authenticate; Isolate sandboxes use it in-Worker so the key never
+leaves the control plane process.
 
 ## Server-side tools run off your account
 
@@ -158,7 +155,7 @@ issued from inside the sandbox itself (the container on MicroVM, the
 - [ ] **Bypass `/webhooks`** in Access; let the Standard Webhooks
       signature check handle it.
 - [ ] **Audit egress policies.** Default-deny is safer than
-      default-allow. See [Applying Egress Policies](/docs/applying-egress-policies).
+      default-allow. See [Applying Egress Policies](./applying-egress-policies.md).
 - [ ] **Limit who can edit secrets and policies.** The dashboard's
       Secrets and Egress Policies pages are powerful — anyone who can
       reach them can rewrite traffic for every session.
@@ -169,9 +166,7 @@ issued from inside the sandbox itself (the container on MicroVM, the
 ## Where to look
 
 - Webhook signature verification: `src/webhooks.ts` (`verifyStandardWebhook`)
-- API regex / validation: `src/api/index.ts`
-- Custom-tool dispatchers: `src/microvm/sandbox.ts` (MicroVM) and
-  `src/isolate/runner.ts` (Isolate) both call
-  `runCustomToolDispatcher` from `src/isolate/custom-dispatch.ts`
-- README walkthrough: the **Locking it down with Cloudflare Access**
-  section
+- API id regexes: `src/helpers.ts`
+- Custom-tool dispatchers: `src/microvm/sandbox.ts` and
+  `src/isolate/runner.ts` both call `runCustomToolDispatcher` from
+  `src/isolate/custom-dispatch.ts`

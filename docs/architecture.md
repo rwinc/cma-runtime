@@ -84,7 +84,7 @@ a webhook from Anthropic, plus a daily cron that prunes old rows.
    goes idle. Isolate persists automatically through Durable Object
    SQLite storage.
 
-See [Isolate vs VM-based Sandboxes](/docs/isolate-vs-vm-sandboxes) for
+See [Isolate vs VM-based Sandboxes](./isolate-vs-vm-sandboxes.md) for
 the trade-offs that drive step 3.
 
 ## Components
@@ -113,7 +113,7 @@ declares the image and instance type:
 "containers": [{
   "class_name": "Sandbox",
   "image": "./Dockerfile",
-  "instance_type": "standard-2",
+  "instance_type": "standard-1",
   "max_instances": 100
 }]
 ```
@@ -131,24 +131,21 @@ snapshots for MicroVM sessions.
 shared policy engine that compiles each session's policy down to allow
 lists, deny lists, header-injection rules, optional Dynamic Worker
 proxy, and VPC service routing. Details in
-[Applying Egress Policies](/docs/applying-egress-policies).
+[Applying Egress Policies](./applying-egress-policies.md).
 
 **Cron.** A daily trigger (`0 4 * * *`) prunes old webhook events,
 sessions, and inbox rows.
 
 ## API reference
 
-The Worker exposes OpenAPI 3.1 document covering every
-HTTP route — sandbox lifecycle, agent / session proxies, egress policy
-CRUD, secrets, VPC bindings, webhook ingress, and the WebSocket terminal
+The Worker exposes an OpenAPI 3.1 document covering every HTTP route —
+sandbox lifecycle, agent / session proxies, egress policy CRUD,
+secrets, VPC bindings, webhook ingress, and the WebSocket terminal
 upgrade.
 
-Open `/api-reference` in your Worker to see the spec, or
-fetch `/openapi.json` for machine-friendly output.
-
-`/api/config` returns an `openapi` block pointing at
-both URLs plus the Redoc page, so a CLI can hit `/api/config` first
-and follow the link from there.
+Open `/redoc.html` in your Worker to browse the spec, or fetch
+`/openapi.json` for machine-friendly output. `/api/config` returns an
+`openapi` block pointing at both URLs.
 
 ```sh
 # CLI usage

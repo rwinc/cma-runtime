@@ -1,7 +1,7 @@
 # Snapshots & state persistence
 
 Wiring up R2 snapshots is part of the core onboarding flow (README →
-Step 4) for any deployment that runs the MicroVM backend. Isolate-only
+Step 5) for any deployment that runs the MicroVM backend. Isolate-only
 deployments can skip the bucket — DO storage handles persistence
 transparently. Once the `BACKUP_BUCKET` bucket exists and the binding
 is in place, every MicroVM Sandbox session automatically preserves its

@@ -57,28 +57,18 @@ Authenticate with an API token. Hosted, includes a server-side
 HTML→markdown converter, and supports operations the binding doesn't
 expose directly (PDF, scrape, snapshot).
 
-```jsonc
-// wrangler.jsonc (vars + secrets)
-"vars": {
-  "CLOUDFLARE_ACCOUNT_ID": "..."
-}
-```
-
 ```sh
 npx wrangler secret put CLOUDFLARE_API_TOKEN
+npx wrangler secret put CLOUDFLARE_ACCOUNT_ID
 ```
 
-The token needs the **Account → Browser Run → Edit** permission.
+The token needs the **Account → Browser Rendering → Edit** permission.
 
 ### Path B — Workers Binding + Puppeteer
 
-```jsonc
-// wrangler.jsonc
-"browser": { "binding": "BROWSER" }
-```
-
-No secrets to set — the binding itself is the credential. The control plane
-drives Chrome through
+The `BROWSER` binding is declared in `wrangler.jsonc` by default — no
+secrets to set, the binding itself is the credential. The control
+plane drives Chrome through
 [`@cloudflare/puppeteer`](https://www.npmjs.com/package/@cloudflare/puppeteer).
 For markdown on the binding path the control plane rounds-trips HTML through
 `env.AI.toMarkdown()` if the Workers AI binding is also present;
@@ -98,30 +88,23 @@ binding is automatic; no agent-side code change needed.
 
 ## Setup
 
-1. **Pick a path.** Either REST creds (`CLOUDFLARE_ACCOUNT_ID` +
-   `CLOUDFLARE_API_TOKEN`) or the `BROWSER` binding.
+The `BROWSER` binding ships declared in `wrangler.jsonc` by default,
+so the binding path works out of the box. To use the REST path
+instead (faster, supports PDF/scrape), set both secrets:
 
-2. **Update `wrangler.jsonc`.** Uncomment the `browser` block at the
-   top of the file (binding path) or set the account id var (REST
-   path).
+```sh
+npx wrangler secret put CLOUDFLARE_API_TOKEN
+npx wrangler secret put CLOUDFLARE_ACCOUNT_ID
+```
 
-3. **Set secrets if using REST.**
+CDP control (`browser_search` / `browser_execute`) also requires the
+`LOADER` Worker Loader binding, which is declared by default too.
 
-   ```sh
-   npx wrangler secret put CLOUDFLARE_API_TOKEN
-   # if not already set:
-   npx wrangler secret put CLOUDFLARE_ACCOUNT_ID
-   ```
+Then deploy:
 
-4. **For CDP control (Isolate only): add the `LOADER` binding too.**
-   Worker Loader is what gives the dispatcher its sandboxed JS host
-   for running CDP scripts.
-
-5. **Deploy.**
-
-   ```sh
-   npm run deploy
-   ```
+```sh
+npm run deploy
+```
 
 The agent form on the dashboard automatically surfaces each tool as a
 toggle. Tools whose binding isn't configured render disabled with a
@@ -255,14 +238,13 @@ automatically.
   is wired up. Set `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_API_TOKEN` or
   add the `BROWSER` binding.
 - **REST returns 401** — the API token doesn't have the **Browser
-  Rendering → Edit** permission, or it's scoped to a different
-  account.
+  Rendering → Edit** permission, or it's scoped to the wrong account.
 - **Binding path returns raw HTML when markdown was requested** — the
   AI binding isn't configured. Uncomment `ai` in `wrangler.jsonc` for
   the binding path's HTML→markdown conversion.
 - **CDP tools return "endpoint requires CLOUDFLARE_API_TOKEN"** — the
-  `cf_browser_*` tools need the `LOADER` binding for the
-  sandboxed JS host AND a browser path. Add the missing binding.
+  `browser_search` / `browser_execute` tools need the `LOADER` binding
+  for the sandboxed JS host AND a browser path. Add the missing binding.
 - **PDF returns garbled text** — PDFs route around Browser Run
   and use a direct fetch. If the PDF is gated behind authentication,
   the agent has to fetch it through a different path (e.g.

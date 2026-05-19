@@ -36,7 +36,7 @@ The agent does its work inside a sandbox you own.
   Open a shell into a running sandbox from the dashboard to see what the
   agent saw, run ad-hoc commands, or do live debugging of stuck tasks.
 
-See [customizing sandboxes](/docs/customizing-sandboxes) for more information.
+See [customizing sandboxes](./customizing-sandboxes.md) for more information.
 
 ### Secure each agent session end-to-end
 
@@ -53,7 +53,7 @@ Intercept and control each agent's access to the outside world:
 Policies can be customized and applied to different agents and sessions based on simple
 rules.
 
-See [Applying Egress Policies](/docs/applying-egress-policies) for more information.
+See [Applying Egress Policies](./applying-egress-policies.md) for more information.
 
 ### Reach private services anywhere
 
@@ -61,7 +61,7 @@ See [Applying Egress Policies](/docs/applying-egress-policies) for more informat
 give your agent a private path into your existing
 infrastructure — on any cloud provider or on-prem — without exposing it to the
 public internet. Walk through the wiring in
-[Connecting to Private Services](/docs/connecting-to-private-services).
+[Connecting to Private Services](./connecting-to-private-services.md).
 
 ### Two sandbox shapes for two workloads
 
@@ -74,7 +74,7 @@ Pick the sandbox that matches the task:
   cheaper to run, while still being able to write files and execute arbitrary
   code. They do not have a full Linux VM, but are suitable for many agent workloads.
 
-[Isolate vs VM-based Sandboxes](/docs/isolate-vs-vm-sandboxes) compares the
+[Isolate vs VM-based Sandboxes](./isolate-vs-vm-sandboxes.md) compares the
 two side-by-side.
 
 ### Extend the agent with custom tools
@@ -82,7 +82,7 @@ two side-by-side.
 Adding tools with no additional infrastructure overhead is easy. Just
 add a tool definition in `src/tools/custom-tools.ts` and redeploy.
 
-See [Adding Custom Tools](/docs/adding-custom-tools) for more information.
+See [Adding Custom Tools](./adding-custom-tools.md) for more information.
 
 ### Use the Cloudflare Developer Platform as your tool surface
 

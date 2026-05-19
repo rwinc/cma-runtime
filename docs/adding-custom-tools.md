@@ -202,61 +202,31 @@ See [Agent Email](./agent-email.md) for the full reference. Summary:
 
 ## How it works under the hood
 
-You only need to read this if you're debugging or extending the
-machinery itself.
+Skip this section unless you're debugging or extending the machinery.
 
-The wiring lives in two files:
+Each entry in `CUSTOM_TOOLS` is read in three places:
 
-| File | Responsibility |
-| --- | --- |
-| [`src/tools/custom-tools.ts`](../src/tools/custom-tools.ts) | The single user-facing file. Exports `CUSTOM_TOOLS` — an array of tool definitions. |
-| [`src/tools/custom-tools-runtime.ts`](../src/tools/custom-tools-runtime.ts) | Internal helpers. Provides `defineTool`, type definitions, and the adapters that convert one `CustomTool` into a `BetaRunnableTool` (used by both backends' dispatchers) and an Anthropic agent JSON-Schema def. |
+- [`src/tools/cf/index.ts`](../src/tools/cf/index.ts) — `buildCfTools`
+  appends customs to the runtime catalog both backends' dispatchers
+  consume, and `cfToolGroups` registers them for drift detection.
+- [`src/tools/schemas.ts`](../src/tools/schemas.ts) — `customToolAgentDef`
+  converts each tool into an entry on the Anthropic agent payload at
+  agent-create time.
+- `/api/custom-tools` — the dashboard reads this on agent-form mount.
+  Tools whose `requires()` predicate fails render disabled with a
+  "binding not configured" hint.
 
-The wiring code reads `CUSTOM_TOOLS` from two places:
+Each checked custom tool ships to Anthropic as a `type: "custom"`
+entry. At runtime, your `run` function executes inside the session's
+Durable Object — IsolateRunner for Isolate sessions, Sandbox for
+MicroVM. Both have full `env` access, so calls are a single function
+invocation: no container egress, no MCP relay, no virtual hostname.
 
-- [`src/tools/cf/index.ts`](../src/tools/cf/index.ts) — appends custom
-  tools to the catalog in `buildCfTools`, which both backends'
-  dispatchers consume. Their names also appear in `cfToolGroups` so
-  the IsolateRunner's drift detection knows about them.
-- [`src/tools/schemas.ts`](../src/tools/schemas.ts) — converts each
-  tool to an `IsolateToolDef` on the fly via `customToolAgentDef`, so
-  it appears in the agent payload sent to Anthropic at agent-create
-  time.
-
-The dashboard fetches the live list from `/api/custom-tools` (defined
-in [`src/api/index.ts`](../src/api/index.ts)) on agent-form mount and renders each
-tool as a checkbox. Tools whose `requires()` predicate fails on the
-current deployment render with a "binding not configured" hint.
-
-The wire shape is the same on both backends. Each checked custom tool
-ships as a `type: "custom"` entry on the Anthropic agent payload.
-What differs is which dispatcher answers the model's
-`agent.custom_tool_use` events:
-
-- **Isolate.** `IsolateRunner` (the session's Durable Object) runs the
-  SDK's `SessionToolRunner` alongside `runCustomToolDispatcher` from
-  [`src/isolate/custom-dispatch.ts`](../src/isolate/custom-dispatch.ts).
-  Both attach to the same Anthropic session event stream; the SDK
-  runner owns dispatch for `agent.tool_use` and `agent.custom_tool_use`
-  events, and our parallel dispatcher provides reconcile-across-
-  disconnect coverage so `agent.custom_tool_use` events that arrived
-  while the DO was asleep also get answered. A hand-rolled heartbeat
-  loop in `runner.ts` owns the work-item lease — `SessionToolRunner` is
-  dispatch-only under the 0.96 SDK.
-- **MicroVM.** `Sandbox` (the session's Durable Object) runs
-  `runCustomToolDispatcher` alongside `ant beta:worker run` in the
-  container. The in-container dispatcher owns Anthropic's stock
-  toolset (bash / read / write / edit / glob / grep / web_fetch /
-  web_search) so it handles `agent.tool_use`. Our DO-side dispatcher
-  handles `agent.custom_tool_use` for the cf_* family and any
-  user-defined customs — same code as Isolate, just running in the
-  Sandbox DO instead of the IsolateRunner DO.
-
-Either way the `run` function you wrote in `src/tools/custom-tools.ts`
-executes in the Worker runtime with the full `env`. No container
-egress, no MCP relay, no virtual hostname — the dispatcher is in the
-DO and the bindings are in the DO, so calls are a single function
-invocation.
+The DO dispatcher answers `agent.custom_tool_use` events directly. On
+MicroVM, Anthropic's stock toolset (bash, read, write, edit, glob,
+grep, web_fetch, web_search) is handled by `ant beta:worker run`
+inside the container via `agent.tool_use` — your custom tools are on a
+parallel event channel and stay in the DO.
 
 ## Drift detection
 
