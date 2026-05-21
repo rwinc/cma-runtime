@@ -75,6 +75,13 @@ The ADR captures:
 - **Tests**: `npm test` runs Vitest against the worker pool. Run before pushing.
 - **Deploys**: `npm run deploy` (terminal flow) or git-based via the Deploy to Cloudflare button. Production deploys belong to the Richwood Cloudflare account.
 
+## Known traps
+
+Non-obvious failure modes surfaced in past sessions. Read before changing config or doing cross-repo work.
+
+- **Branch protection deadlocks solo work if `require_code_owner_reviews: true`.** GitHub treats that flag as a hard gate even when `required_approving_review_count: 0` — a CODEOWNER review is required, and the PR author can't approve their own PR. For a solo or single-maintainer repo, set `require_code_owner_reviews: false`. CODEOWNERS still auto-requests review as a notification; merge is gated by status checks only. Hit during issue #4 setup.
+- **Upstream and this fork have overlapping PR numbers.** GitHub numbers PRs per-repo. `#8` in this fork is `CLAUDE.md`; `#8` upstream (`cloudflare/claude-managed-agents`) is a security PR. Always cite `repo#N` in commits, comments, and reviews — bare `#N` causes real cross-repo confusion. Hit when reviewer findings on upstream PRs were mistaken for findings on our fork.
+
 ## When to look elsewhere
 
 - **Upstream onboarding / architecture**: `README.md` and `AGENTS.md` (both upstream-owned, don't edit)
