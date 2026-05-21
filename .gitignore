@@ -207,3 +207,6 @@ frontend/static/redoc.standalone.js
 
 ### Superpowers ###
 .superpowers/
+
+### Claude Code (per-machine) ###
+.claude/settings.local.json

@@ -1,0 +1,64 @@
+name: Incident Report
+description: Post-incident report for S1/S2 production events
+labels: ["bug", "P1-critical"]
+body:
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - S1 Critical (production down, data loss, financial risk)
+        - S2 High (major feature impaired)
+    validations:
+      required: true
+  - type: textarea
+    id: timeline
+    attributes:
+      label: Timeline
+      description: What happened, when, in what order?
+      placeholder: |
+        - HH:MM — Issue detected (how?)
+        - HH:MM — Investigation started
+        - HH:MM — Root cause identified
+        - HH:MM — Fix deployed / rollback applied
+        - HH:MM — Confirmed resolved
+    validations:
+      required: true
+  - type: textarea
+    id: root-cause
+    attributes:
+      label: Root Cause
+      description: Why did this happen? Use 5 Whys if needed.
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: Who was affected, for how long, what was the business impact?
+    validations:
+      required: true
+  - type: textarea
+    id: resolution
+    attributes:
+      label: Resolution
+      description: What fixed it? Was it a rollback, hotfix, config change?
+    validations:
+      required: true
+  - type: textarea
+    id: prevention
+    attributes:
+      label: Prevention Actions
+      description: What changes prevent this class of incident from recurring?
+      placeholder: |
+        - [ ] Regression test added
+        - [ ] Monitoring/alerting improved
+        - [ ] Guardrail/validation added
+        - [ ] Process or documentation updated
+    validations:
+      required: true
+  - type: textarea
+    id: related
+    attributes:
+      label: Related Issues / PRs
+      description: Link to the fix PR, related issues, or prior incidents.
