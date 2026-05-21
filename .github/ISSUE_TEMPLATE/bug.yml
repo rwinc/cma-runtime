@@ -1,0 +1,43 @@
+name: Bug Report
+description: Something is not working correctly
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What happened? What did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Environment
+      options:
+        - Production
+        - QA/Staging
+        - Local Development
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - S1 Critical (production down, data loss, financial risk)
+        - S2 High (major feature broken, no workaround)
+        - S3 Medium (feature broken, workaround exists)
+        - S4 Low (cosmetic, minor inconvenience)
+  - type: checkboxes
+    id: definition-of-done
+    attributes:
+      label: Definition of Done
+      description: Check these when complete before closing.
+      options:
+        - label: Root cause identified (not just symptoms)
+        - label: Regression test added
+        - label: Fix validated in QA
+        - label: Deployed to production
+        - label: Monitoring confirms fix
