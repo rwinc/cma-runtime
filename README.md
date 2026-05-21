@@ -1,3 +1,7 @@
+<!-- RICHWOOD-ADDENDUM:START — Do not edit upstream prose below. See RICHWOOD.md. -->
+> **Richwood fork.** This is a Richwood fork of [`cloudflare/claude-managed-agents`](https://github.com/cloudflare/claude-managed-agents). It backs the `ClaudeManagedCloudflareProvider` in [`rwinc/tardis`](https://github.com/rwinc/tardis). See **[RICHWOOD.md](./RICHWOOD.md)** for fork ownership, thin-fork policy, and Tardis context. Agents working in this repo: read **[CLAUDE.md](./CLAUDE.md)** first.
+<!-- RICHWOOD-ADDENDUM:END -->
+
 # Claude Managed Agents on Cloudflare
 
 Run Claude Managed Agents (CMA) on Cloudflare.
