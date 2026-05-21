@@ -50,7 +50,7 @@ jobs:
         # wrangler.jsonc / vpc.generated.ts and so always fail in clean CI.
         # Tracked in issue #17 (cma-runtime); upstreaming the fix is the
         # right long-term answer. Drop this when upstream lands the fix.
-        run: npm test -- --testNamePattern '^(?!.*case-insensitive binding).*$' --if-present
+        run: npm test --if-present -- --testNamePattern '^(?!.*case-insensitive binding).*$'
 
       - name: Security audit
         run: npm audit --audit-level=high || true
