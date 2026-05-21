@@ -35,8 +35,8 @@ Richwood-owned (free to edit):
 - `docs/upstream-sync.md` (this file)
 - `.claude/` (commands, skills, plugin settings)
 - `.github/` (templates, workflows, dependabot)
+- `.prettierignore` — Prettier ignore list that keeps the local hook off upstream files
 - `commitlint.config.js` (once wired — see issue #14)
-- `.prettierignore` (once added — see issue #11)
 - The `<!-- RICHWOOD-ADDENDUM:START/END -->` block at the top of `README.md`
 
 If a path isn't in either list, default to treating it as upstream-owned.
@@ -134,11 +134,11 @@ If we accumulate more than ~2 deltas in upstream files, the thin-fork posture is
 - `git diff main upstream/main -- <path>` — preview a single file's incoming changes
 - `git log --oneline --no-merges main..upstream/main` — list incoming commits
 - `git diff --stat HEAD~1` after merge — confirm scope
-- `.prettierignore` (issue #11) — once landed, prevents the local Prettier hook from reformatting upstream files during edits
+- `.prettierignore` — prevents the local Prettier hook from reformatting upstream files during edits
 
 ## Failure modes to watch for
 
-- **Prettier silently reformats upstream files on edit.** The rw plugin's PostToolUse hook runs Prettier on every `.md` / `.ts` / `.json` / `.css` / `.js` edit. Until issue #11 lands, work on upstream files via `cat` / `printf` redirection or use `git checkout main -- <path>` to reset after an accidental reformat. PR #9 captures the regression that motivates this guidance.
+- **Prettier silently reformats upstream files on edit.** The rw plugin's PostToolUse hook runs Prettier on every `.md` / `.ts` / `.json` / `.css` / `.js` edit. `.prettierignore` covers the known upstream paths, but if upstream adds a new file at a path the ignore list doesn't yet cover, the first edit can reformat it. Update `.prettierignore` whenever the upstream file inventory changes (notably new files under `docs/`).
 - **Lockfile churn.** `npm install` regenerates `package-lock.json`. If you've added Richwood devDeps (commitlint, husky), they belong in the lockfile alongside upstream's. Don't strip them on sync.
 - **`.dev.vars`-style secrets drift.** If `.dev.vars.example` changes upstream, mirror the new keys in your local `.dev.vars` _and_ in 1Password before deploying.
 

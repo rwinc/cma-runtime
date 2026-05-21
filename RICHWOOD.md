@@ -19,21 +19,24 @@ This fork is intentionally **thin**:
 - If a change has to touch an upstream file, prefer upstreaming the fix to `cloudflare/claude-managed-agents` over carrying a delta.
 - We pull upstream weekly, or before any non-trivial customization PR. Conflicts on a thin fork should be rare — when they aren't, that's a signal we've drifted.
 
-The detailed sync workflow lives in `docs/upstream-sync.md` (TODO: issue #7).
+The detailed sync workflow lives in [`docs/upstream-sync.md`](./docs/upstream-sync.md).
 
 ## What lives where
 
-| Path                   | Owner    | Purpose                                                 |
-| ---------------------- | -------- | ------------------------------------------------------- |
-| `README.md`            | Upstream | Project overview, onboarding, architecture              |
-| `AGENTS.md`            | Upstream | Cloudflare Workers / agent SDK notes                    |
-| `VALIDATION.md`        | Upstream | Upstream's validation plan                              |
-| `src/`, `tests/`, etc. | Upstream | Code and tests for the control plane                    |
-| `RICHWOOD.md`          | Richwood | This file — fork ownership + relationship to Tardis     |
-| `CLAUDE.md`            | Richwood | Agent guardrails (thin-fork policy, conventions)        |
-| `.claude/`             | Richwood | Skills, commands, and agent tooling synced from rw-meta |
-| `.github/`             | Richwood | Richwood PR/issue templates and workflows               |
-| `commitlint.config.js` | Richwood | Conventional Commits enforcement                        |
+| Path                    | Owner    | Purpose                                                 |
+| ----------------------- | -------- | ------------------------------------------------------- |
+| `README.md`             | Upstream | Project overview, onboarding, architecture              |
+| `AGENTS.md`             | Upstream | Cloudflare Workers / agent SDK notes                    |
+| `VALIDATION.md`         | Upstream | Upstream's validation plan                              |
+| `src/`, `tests/`, etc.  | Upstream | Code and tests for the control plane                    |
+| `RICHWOOD.md`           | Richwood | This file — fork ownership + relationship to Tardis     |
+| `CLAUDE.md`             | Richwood | Agent guardrails (thin-fork policy, conventions)        |
+| `docs/upstream-sync.md` | Richwood | Thin-fork sync workflow                                 |
+| `.claude/`              | Richwood | Skills, commands, and agent tooling synced from rw-meta |
+| `.github/`              | Richwood | Richwood PR/issue templates and workflows               |
+| `.github/CODEOWNERS`    | Richwood | Review auto-request routing                             |
+| `.prettierignore`       | Richwood | Keeps local Prettier hook off upstream-owned files      |
+| `commitlint.config.js`  | Richwood | Conventional Commits enforcement (pending issue #14)    |
 
 ## Relationship to Tardis
 
