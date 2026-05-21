@@ -35,7 +35,7 @@ npm test
 
 If a conflict requires modifying an upstream-owned file, stop and consider upstreaming the fix to `cloudflare/claude-managed-agents` instead of carrying the delta locally.
 
-The detailed sync workflow lives in `docs/upstream-sync.md` (TODO: issue #7).
+The detailed sync workflow lives in [`docs/upstream-sync.md`](./docs/upstream-sync.md).
 
 ## Richwood-specific files
 
@@ -44,12 +44,13 @@ Look here for customizations and Richwood context. Everything else is upstream's
 | Path                    | Purpose                                                   |
 | ----------------------- | --------------------------------------------------------- |
 | `CLAUDE.md`             | This file — agent guardrails                              |
-| `RICHWOOD.md`           | Fork ownership, Richwood README addendum (TODO: issue #1) |
+| `RICHWOOD.md`           | Fork ownership, Richwood README addendum                  |
 | `.claude/`              | Skills, commands, and agent tooling synced from `rw-meta` |
 | `.github/`              | Richwood PR/issue templates and workflows                 |
-| `commitlint.config.js`  | Conventional Commits enforcement                          |
-| `docs/upstream-sync.md` | Thin-fork sync workflow (TODO: issue #7)                  |
-| `.github/CODEOWNERS`    | Review routing (TODO: issue #3)                           |
+| `.github/CODEOWNERS`    | Review routing                                            |
+| `.prettierignore`       | Keeps the local Prettier hook off upstream-owned files    |
+| `commitlint.config.js`  | Conventional Commits enforcement (TODO: issue #14)        |
+| `docs/upstream-sync.md` | Thin-fork sync workflow                                   |
 
 If a file isn't in this table, treat it as upstream-owned and leave it alone unless absolutely necessary.
 

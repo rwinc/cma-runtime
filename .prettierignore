@@ -1,0 +1,48 @@
+# Upstream-owned files — do not let the local Prettier hook reformat them.
+#
+# This is tooling enforcement of the thin-fork policy
+# (see CLAUDE.md and docs/upstream-sync.md). The rw-plugin's PostToolUse
+# hook runs `npx prettier --write` on every .md / .ts / .json / .css / .js
+# Edit/Write — without this file, editing an upstream file silently
+# reflows it and produces a delta that breaks `git merge upstream/main`.
+#
+# Pattern: list each upstream-owned file/directory below. If you add a
+# new Richwood-owned file at a path that overlaps an excluded directory,
+# add an explicit `!` line for it. Richwood-owned files at the repo root
+# (CLAUDE.md, RICHWOOD.md, .prettierignore, etc.) are formatted normally.
+
+# Top-level upstream files
+README.md
+AGENTS.md
+VALIDATION.md
+Dockerfile
+LICENSE
+tsconfig.json
+vite.config.ts
+vitest.config.ts
+wrangler.jsonc
+worker-configuration.d.ts
+package.json
+package-lock.json
+
+# Whole upstream directories
+src/
+tests/
+scripts/
+migrations/
+frontend/
+
+# docs/ — list each upstream file explicitly so docs/upstream-sync.md
+# (Richwood-owned) is not affected. Update this list when upstream adds
+# or removes files in docs/.
+docs/about.md
+docs/adding-custom-tools.md
+docs/agent-email.md
+docs/applying-egress-policies.md
+docs/architecture.md
+docs/browser-rendering-tools.md
+docs/connecting-to-private-services.md
+docs/customizing-sandboxes.md
+docs/isolate-vs-vm-sandboxes.md
+docs/securing-access.md
+docs/snapshots-and-state-persistence.md
