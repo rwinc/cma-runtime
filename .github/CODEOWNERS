@@ -1,0 +1,18 @@
+# CODEOWNERS for rwinc/cma-runtime
+#
+# Auto-requests review from the listed owners on every PR.
+# Triggered by the path patterns — most specific match wins.
+#
+# This is a Richwood fork of cloudflare/claude-managed-agents.
+# See RICHWOOD.md and docs/upstream-sync.md for fork posture.
+
+# Default: senior devs review everything that lands here.
+* @rwinc/richwood-sr-dev
+
+# Richwood-owned files — same default reviewer. Explicit so the
+# ownership is obvious to anyone reading this file.
+/CLAUDE.md            @rwinc/richwood-sr-dev
+/RICHWOOD.md          @rwinc/richwood-sr-dev
+/.github/             @rwinc/richwood-sr-dev
+/.claude/             @rwinc/richwood-sr-dev
+/docs/upstream-sync.md @rwinc/richwood-sr-dev
