@@ -49,7 +49,8 @@ Look here for customizations and Richwood context. Everything else is upstream's
 | `.github/`              | Richwood PR/issue templates and workflows                 |
 | `.github/CODEOWNERS`    | Review routing                                            |
 | `.prettierignore`       | Keeps the local Prettier hook off upstream-owned files    |
-| `commitlint.config.js`  | Conventional Commits enforcement (TODO: issue #14)        |
+| `commitlint.config.js`  | Conventional Commits enforcement                          |
+| `.husky/`               | Git hooks — commit-msg runs `commitlint`                  |
 | `docs/upstream-sync.md` | Thin-fork sync workflow                                   |
 
 If a file isn't in this table, treat it as upstream-owned and leave it alone unless absolutely necessary.
@@ -68,7 +69,7 @@ The ADR captures:
 
 ## Conventions
 
-- **Commits**: Conventional Commits (`type(scope): description`). Enforced by `commitlint`.
+- **Commits**: Conventional Commits (`type(scope): description`). Enforced locally by a husky `commit-msg` hook running `commitlint` (config: `commitlint.config.js`, 72-char subject cap). Bypass with `git commit --no-verify` only for genuine edge cases — e.g. merge commits with upstream-shaped messages we can't rewrite, or emergency reverts. CI does not currently lint commit subjects; the local hook is the only enforcement layer.
 - **Secrets**: via 1Password CLI or `wrangler secret put`. Never in code or `.dev.vars`-committed files. See `.dev.vars.example` for shape.
 - **Don't rewrite upstream files** unless there's no other path. New behavior goes in new files.
 - **Don't touch `README.md`** — that's upstream. Use `RICHWOOD.md` for Richwood-specific docs.
