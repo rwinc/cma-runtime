@@ -1,0 +1,58 @@
+# Richwood — Codex PR Review
+# Thin caller — all logic lives in rw-meta/.github/actions/codex-review.
+# Triggers when @franksaysno is requested as reviewer, or on /codex-review comment.
+#
+# Required secrets (org-level):
+#   OPENAI_API_KEY — OpenAI API key with gpt-5.3-codex access
+#
+# Required one-time setup on rw-meta repo:
+#   Settings > Actions > Access > "Accessible from repositories in the rwinc organization"
+#
+# Synced from rw-meta/shared. Do not edit in project repos.
+
+name: Codex PR Review
+
+on:
+  pull_request:
+    types: [review_requested]
+  issue_comment:
+    types: [created]
+
+jobs:
+  review:
+    name: Codex Review
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    permissions:
+      pull-requests: write
+      contents: read
+
+    # Only when @franksaysno is requested as reviewer OR /codex-review comment on a PR
+    if: >-
+      (github.event_name == 'pull_request' &&
+       github.event.requested_reviewer.login == 'franksaysno')
+      ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       contains(github.event.comment.body, '/codex-review'))
+
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+      - name: Resolve PR number
+        id: pr
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "number=${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "number=${{ github.event.issue.number }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run Codex review
+        uses: rwinc/meta/.github/actions/codex-review@main
+        with:
+          pr_number: ${{ steps.pr.outputs.number }}
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          github_token: ${{ github.token }}
+          event_name: ${{ github.event_name }}
