@@ -1,0 +1,236 @@
+# Richwood — Production Deploy
+# Triggered on push to main. Runs CI checks, backs up D1, then deploys.
+#
+# Configure per project by editing the env block below.
+# Synced from rw-meta/shared. Edit the env block in project repos only.
+
+name: Deploy Production
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+# ─── PROJECT CONFIG (edit these per project) ─────────────────────────────────
+env:
+  DEPLOY_ENV: production
+  NODE_VERSION: "22"
+
+  # Worker deploy (set to the wrangler --env value)
+  # WORKER_ENV: production
+
+  # D1 database (set for migrations + backup)
+  # D1_DATABASE: myproject-prod
+
+  # Pages frontend
+  # PAGES_PROJECT: myproject
+  # PAGES_BRANCH: main
+  # VITE_API_URL: https://myproject-api.richwood.com
+
+  # Health check
+  # HEALTH_URL: https://myproject.richwood.com
+
+# ─── WORKFLOW ─────────────────────────────────────────────────────────────────
+
+jobs:
+  ci:
+    name: CI Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Configure npm for GitHub Packages
+        if: hashFiles('.npmrc') != ''
+        run: echo "//npm.pkg.github.com/:_authToken=${{ secrets.NPM_PKG_TOKEN }}" >> ~/.npmrc
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.NPM_PKG_TOKEN }}
+
+      - name: Type check
+        run: npm run typecheck --if-present
+
+      - name: Test
+        run: npm test --if-present
+
+      - name: Lint
+        run: npm run lint --if-present
+
+  deploy:
+    name: Deploy to Production
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Configure npm for GitHub Packages
+        if: hashFiles('.npmrc') != ''
+        run: echo "//npm.pkg.github.com/:_authToken=${{ secrets.NPM_PKG_TOKEN }}" >> ~/.npmrc
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.NPM_PKG_TOKEN }}
+
+      # ── Detect project layout ────────────────────────────────────────────
+      # Finds wrangler.toml (Worker dir) and vite.config.* (frontend dir)
+      # automatically. Works with any directory structure.
+      #
+      # Worker: prefers dirs named api/gateway/router/backend over web/shell/frontend.
+      # Frontend: prefers dirs named web/shell/frontend/ui, skips packages/.
+      - name: Detect layout
+        id: layout
+        run: |
+          # Find all wrangler.toml files (excluding node_modules)
+          WRANGLER_FILES=$(find . -name "wrangler.toml" -not -path "*/node_modules/*")
+
+          if [ -n "$WRANGLER_FILES" ]; then
+            # Prefer paths containing api, gateway, or backend (Worker dirs)
+            # Fall back to first match if none match the preference
+            WRANGLER=$(echo "$WRANGLER_FILES" | grep -E '/(api|gateway|router|backend)/' | head -1)
+            [ -z "$WRANGLER" ] && WRANGLER=$(echo "$WRANGLER_FILES" | head -1)
+            API_DIR=$(dirname "$WRANGLER" | sed 's|^\./||')
+            echo "api_dir=$API_DIR" >> "$GITHUB_OUTPUT"
+            echo "Detected Worker dir: $API_DIR"
+          else
+            echo "api_dir=." >> "$GITHUB_OUTPUT"
+            echo "No wrangler.toml found, defaulting to root"
+          fi
+
+          # Find vite.config.* for deployable frontend apps
+          # Prefer dirs named web, shell, frontend, or ui
+          # Skip packages/ (libraries) and canonical/ (docs)
+          VITE_FILES=$(find . -name "vite.config.*" \
+            -not -path "*/node_modules/*" \
+            -not -path "*/packages/*" \
+            -not -path "*/canonical/*")
+
+          if [ -n "$VITE_FILES" ]; then
+            VITE=$(echo "$VITE_FILES" | grep -E '/(web|shell|frontend|ui)/' | head -1)
+            [ -z "$VITE" ] && VITE=$(echo "$VITE_FILES" | head -1)
+            WEB_DIR=$(dirname "$VITE" | sed 's|^\./||')
+            echo "web_dir=$WEB_DIR" >> "$GITHUB_OUTPUT"
+            echo "Detected frontend dir: $WEB_DIR"
+          else
+            echo "web_dir=" >> "$GITHUB_OUTPUT"
+            echo "No frontend detected"
+          fi
+
+      # ── Install sub-project dependencies ────────────────────────────────
+      # Root `npm ci` only installs root deps. If the Worker or frontend
+      # lives in a sub-directory with its own package-lock.json (i.e. it's
+      # not in root workspaces), its deps must be installed separately.
+      # No-op for projects whose Worker/UI are at root or in workspaces.
+      #
+      # Both GITHUB_NPM_TOKEN and GITHUB_PACKAGES_TOKEN are set because
+      # project .npmrc files use both names across the portfolio.
+      - name: Install sub-project dependencies
+        run: |
+          install_if_needed() {
+            dir="$1"
+            label="$2"
+
+            if [ -z "$dir" ] || [ "$dir" = "." ]; then
+              echo "$label uses root dependencies"
+              return 0
+            fi
+
+            if [ -f "$dir/package-lock.json" ]; then
+              echo "Installing $label dependencies in $dir"
+              (cd "$dir" && npm ci)
+            else
+              echo "$label has no standalone package-lock.json"
+            fi
+          }
+
+          install_if_needed "${{ steps.layout.outputs.api_dir }}" "Worker"
+          install_if_needed "${{ steps.layout.outputs.web_dir }}" "Frontend"
+        env:
+          GITHUB_NPM_TOKEN: ${{ secrets.NPM_PKG_TOKEN }}
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.NPM_PKG_TOKEN }}
+
+      # ── Backup D1 (before any changes) ──────────────────────────────────
+      - name: Backup D1 database
+        if: env.D1_DATABASE != ''
+        working-directory: ${{ steps.layout.outputs.api_dir }}
+        run: |
+          mkdir -p /tmp/backups
+          npx wrangler d1 export ${{ env.D1_DATABASE }} --remote \
+            --output "/tmp/backups/${{ env.D1_DATABASE }}-$(date +%Y%m%d-%H%M%S).sql" \
+            || echo "::warning::D1 backup failed — database may not exist yet"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+      - name: Upload backup artifact
+        if: env.D1_DATABASE != ''
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: d1-backup-${{ github.run_number }}
+          path: /tmp/backups/
+          retention-days: 14
+
+      # ── D1 migrations (before deploy) ───────────────────────────────────
+      - name: Apply D1 migrations
+        if: env.D1_DATABASE != ''
+        working-directory: ${{ steps.layout.outputs.api_dir }}
+        run: npx wrangler d1 migrations apply ${{ env.D1_DATABASE }} --env ${{ env.DEPLOY_ENV }} --remote
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+      # ── Deploy Worker ────────────────────────────────────────────────────
+      - name: Deploy Worker
+        if: env.WORKER_ENV != ''
+        working-directory: ${{ steps.layout.outputs.api_dir }}
+        run: npx wrangler deploy --env ${{ env.WORKER_ENV }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+      # ── Build + Deploy Pages frontend ────────────────────────────────────
+      - name: Build frontend
+        if: env.PAGES_PROJECT != '' && steps.layout.outputs.web_dir != ''
+        working-directory: ${{ steps.layout.outputs.web_dir }}
+        run: npm run build:production 2>/dev/null || npm run build
+        env:
+          VITE_API_BASE_URL: ${{ env.VITE_API_URL }}
+
+      - name: Deploy frontend
+        if: env.PAGES_PROJECT != '' && steps.layout.outputs.web_dir != ''
+        uses: cloudflare/wrangler-action@9acf94ace14e7dc412b076f2c5c20b8ce93c79cd # v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=${{ env.PAGES_PROJECT }} --branch=${{ env.PAGES_BRANCH }}
+          workingDirectory: ${{ steps.layout.outputs.web_dir }}
+
+      # ── Health check ─────────────────────────────────────────────────────
+      - name: Health check
+        if: env.HEALTH_URL != ''
+        run: |
+          sleep 5
+          for i in 1 2 3 4 5; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ env.HEALTH_URL }}/health" || echo "000")
+            if [ "$STATUS" = "200" ]; then echo "Health check passed"; exit 0; fi
+            echo "Attempt $i: HTTP $STATUS, retrying..."
+            sleep $((i * 2))
+          done
+          echo "::error::Health check failed after 5 attempts"
+          exit 1
