@@ -210,3 +210,8 @@ frontend/static/redoc.standalone.js
 
 ### Claude Code (per-machine) ###
 .claude/settings.local.json
+
+### Agent skill working area (per-machine) ###
+# Local agent tooling drops SKILL.md drafts under .agents/skills/.
+# Not source — should not be committed.
+.agents/
