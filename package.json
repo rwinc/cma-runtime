@@ -18,14 +18,18 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:migrate": "wrangler d1 migrations apply DB --local",
-    "db:migrate:remote": "wrangler d1 migrations apply DB --remote"
+    "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.9.0",
+    "@commitlint/cli": "^19.8.1",
+    "@commitlint/config-conventional": "^19.8.1",
     "@types/node": "^24.12.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.4",
+    "husky": "^9.1.7",
     "redoc": "^2.5.2",
     "typescript": "^5.9.3",
     "vite": "^6.0.0",

@@ -49,7 +49,8 @@ Look here for customizations and Richwood context. Everything else is upstream's
 | `.github/`              | Richwood PR/issue templates and workflows                 |
 | `.github/CODEOWNERS`    | Review routing                                            |
 | `.prettierignore`       | Keeps the local Prettier hook off upstream-owned files    |
-| `commitlint.config.js`  | Conventional Commits enforcement (TODO: issue #14)        |
+| `commitlint.config.js`  | Conventional Commits enforcement                          |
+| `.husky/`               | Git hooks — commit-msg runs `commitlint`                  |
 | `docs/upstream-sync.md` | Thin-fork sync workflow                                   |
 
 If a file isn't in this table, treat it as upstream-owned and leave it alone unless absolutely necessary.
@@ -68,7 +69,7 @@ The ADR captures:
 
 ## Conventions
 
-- **Commits**: Conventional Commits (`type(scope): description`). Enforced by `commitlint`.
+- **Commits**: Conventional Commits (`type(scope): description`). Enforced locally by a husky `commit-msg` hook running `commitlint` (config: `commitlint.config.js`, 72-char subject cap). Bypass with `git commit --no-verify` only for genuine edge cases — e.g. merge commits with upstream-shaped messages we can't rewrite, or emergency reverts. CI does not currently lint commit subjects; the local hook is the only enforcement layer.
 - **Secrets**: via 1Password CLI or `wrangler secret put`. Never in code or `.dev.vars`-committed files. See `.dev.vars.example` for shape.
 - **Don't rewrite upstream files** unless there's no other path. New behavior goes in new files.
 - **Don't touch `README.md`** — that's upstream. Use `RICHWOOD.md` for Richwood-specific docs.
@@ -81,6 +82,7 @@ Non-obvious failure modes surfaced in past sessions. Read before changing config
 
 - **Branch protection deadlocks solo work if `require_code_owner_reviews: true`.** GitHub treats that flag as a hard gate even when `required_approving_review_count: 0` — a CODEOWNER review is required, and the PR author can't approve their own PR. For a solo or single-maintainer repo, set `require_code_owner_reviews: false`. CODEOWNERS still auto-requests review as a notification; merge is gated by status checks only. Hit during issue #4 setup.
 - **Upstream and this fork have overlapping PR numbers.** GitHub numbers PRs per-repo. `#8` in this fork is `CLAUDE.md`; `#8` upstream (`cloudflare/claude-managed-agents`) is a security PR. Always cite `repo#N` in commits, comments, and reviews — bare `#N` causes real cross-repo confusion. Hit when reviewer findings on upstream PRs were mistaken for findings on our fork.
+- **`git merge upstream/main` can auto-close fork issues via `Fixes #N` in upstream commit messages.** GitHub parses close keywords using _this repo's_ numbering when commits land on the default branch, regardless of which repo authored the commit. An upstream commit whose body ends with `Fixes #14` (referring to upstream's `#14`) will close the fork's `#14` when the merge commit lands on `main`. Same root cause as the PR-number trap above — different surface. After every `git merge upstream/main`, scan `git log --grep='[FfCc][il][xo]es\? #' main..upstream/main` (or just the incoming commit list) for close keywords and reopen anything that auto-closed by mistake. Hit during the 2026-05-22 sync: our `#14` (commitlint wiring) was incorrectly closed by upstream commit `8eef70b` ("Fixes #14" → upstream's cf-tools fixture issue).
 
 ## When to look elsewhere
 
