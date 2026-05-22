@@ -53,3 +53,47 @@ Worth filing as small issues when there's bandwidth; not blocking.
 - **#14 (commitlint)** is small, no external dependencies, removes a TODO from the file map. Good Day-2 warm-up.
 - **#5 (QA deploy)** is the unlocker for #6 / #12 / health endpoint / runbook — biggest impact, needs your credentials.
 - Watch upstream `cloudflare/claude-managed-agents` PRs #8, #12, #15 (and #14, the issue I filed). When any of those land or close, update #18.
+
+---
+
+## 2026-05-22 — Day 2: Sync, commitlint, workspace cleanup
+
+### Completed
+
+- **Upstream sync + cf-tools test-skip dropped.** PR #22 (closes #17) merged `upstream/main` into our `main` — incoming: `cloudflare/claude-managed-agents` PR #17 (the cf-tools fixture fix mocking `VPC_BINDINGS`, resolving upstream `#14`) and PR #18 (egress policy fingerprint hash). Clean merge, no conflicts — all changes in upstream-owned paths. With the fixture fixed, the Richwood-local `--testNamePattern` exclusion in `pr-validation.yml` was removed; the full vitest suite (152 tests, 8 files) passes with no skip. Merged with a merge commit (not squash) to keep upstream history visible on `main`.
+- **Commitlint wired.** PR #23 (closes #14) added `@commitlint/cli`, `@commitlint/config-conventional`, `husky` as devDependencies, a `prepare: husky` script, and a `.husky/commit-msg` hook running commitlint. The rw-meta-synced `commitlint.config.js` arrived as CommonJS (`module.exports`), which Node's ESM loader rejects because `package.json` declares `"type": "module"` — rewritten as ESM (`export default`). `CLAUDE.md` updated: TODO dropped from the file-map row, `.husky/` added, `--no-verify` bypass documented. Hook verified live — it caught an over-100-char commit body and a non-standard `wip:` type during this session.
+- **Workspace cleanup.** PR #24 added `.agents/` to `.gitignore` (per-machine agent-skill working area, not source) and landed `.github/workflows/codex-pr-review.yml` (rw-meta-synced thin caller; narrow `if:` verified — fired `SKIPPED` on PR #24 itself). The two deploy workflows (`deploy-qa.yml`, `deploy-production.yml`) were stashed to branch `wip/deploy-workflows-issue-12` rather than landed, since they trigger on branch push and would no-op or block on environment gates until #12 is executed.
+- **Issue tracker hygiene.** #18 updated — upstream PR #15 closed without merging, checklist item ticked, status comment added (upstream #8/#12 still open). #14 was spuriously auto-closed by upstream commit `8eef70b` ("Fixes #14") during the #22 sync — reopened with an explanatory comment, then closed legitimately by PR #23.
+- **Known traps captured.** `CLAUDE.md` gained two entries: (1) `git merge upstream/main` can auto-close fork issues via `Fixes #N` keywords in upstream commit messages; (2) this public repo cannot consume private `rwinc/meta` actions.
+
+### In Progress
+
+None — PRs #22/#23/#24 all merged. `wip/deploy-workflows-issue-12` branch parked for #12.
+
+### Open
+
+- **#5** Initial deploy to Richwood CF (QA) — needs Cloudflare credentials + naming decisions
+- **#6** Smoke a CMA session end-to-end — depends on #5
+- **#12** Wire deploy workflows — drafts stashed on `wip/deploy-workflows-issue-12`; needs CF creds + env config
+- **#13** Enable Codex PR review — workflow wired, secret set, but blocked (see Blockers)
+- **#18** Tracker: do not merge upstream PRs #8/#12 as-is (#15 resolved)
+
+### Blockers
+
+- Deploy track (#5 → #6 → #12) gates on Cloudflare credentials and naming decisions only the user can make.
+- **Codex review (#13) is double-blocked.** The `OPENAI_API_KEY` org secret is now set, but: (1) `cma-runtime` is public and cannot resolve the private `rwinc/meta` action — a hard GitHub policy, not a config miss; (2) the `rwinc/meta` `codex-review` action was disabled org-wide on 2026-04-20 (Seth Stoll) pending a Codex rework. Recommend holding #13 until the rw-meta rework lands. Full diagnosis in the #13 comment thread.
+
+### Untracked gaps from /verify repo (carried from Day 1)
+
+- Vitest coverage thresholds missing (upstream's config has no coverage block).
+- Standard label set incomplete — missing `severity:s1-s4`, `P1-P4`, `risk:high/medium`. Can be synced via the `/standards` skill.
+- No deployment runbook (`docs/runbooks/deployment.md`).
+
+Still worth filing as small issues when there's bandwidth; not blocking.
+
+### Next Steps
+
+- **#5 (QA deploy)** remains the biggest unlocker — gates #6, #12, the health endpoint, and the runbook. Needs your Cloudflare credentials + naming decisions.
+- **`/standards`** — sync the missing label set from rw-meta. Small, no external deps; good warm-up.
+- **Upstream test-CI offer** — `cloudflare/claude-managed-agents` has no `npm test` workflow (root cause of the cf-tools breakage shipping). Worth a courtesy PR adding one.
+- Watch upstream PRs #8 and #12; update #18 when either resolves.
