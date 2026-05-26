@@ -45,6 +45,14 @@
       "/api/*",
       "/webhooks",
       "/ws/*",
+      // Richwood deploy health check. Without this, browser-navigation
+      // requests to /health would fall through to the SPA shell
+      // (`not_found_handling: single-page-application` serves
+      // /index.html for unmatched routes) and return HTML 200 instead
+      // of the worker's JSON. The CI `curl` check would still pass,
+      // but a human in a browser would see the React app — which
+      // defeats the point of the endpoint.
+      "/health",
       // OpenAPI spec at the conventional root path so CLI / agent
       // tooling can probe `/openapi.json` directly.
       "/openapi.json",
