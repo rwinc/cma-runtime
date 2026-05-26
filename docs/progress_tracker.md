@@ -97,3 +97,41 @@ Still worth filing as small issues when there's bandwidth; not blocking.
 - **`/standards`** — sync the missing label set from rw-meta. Small, no external deps; good warm-up.
 - **Upstream test-CI offer** — `cloudflare/claude-managed-agents` has no `npm test` workflow (root cause of the cf-tools breakage shipping). Worth a courtesy PR adding one.
 - Watch upstream PRs #8 and #12; update #18 when either resolves.
+
+---
+
+## 2026-05-26 — Day 3: Upstream sync (round 2)
+
+### Completed
+
+- **Weekly upstream sync.** PR #26 (merge commit `a496c73`) merged `cloudflare/claude-managed-agents@22d60e7` into `main`. Incoming: upstream PR #16 (ant CLI → 1.9.1, `TARGETARCH` Docker fix), PR #19 (architecture changes to fix tool-hanging — new `src/heartbeat.ts` and `src/microvm/stock-tools.ts`; reworked `custom-dispatch.ts`, `runner.ts`, `sandbox.ts`), PR #20 (README caveats). Zero conflicts — all 8 changed files upstream-owned (`Dockerfile`, `README.md`, `wrangler.jsonc`, `src/**`). `RICHWOOD-ADDENDUM` block intact. Verification: `npm run typecheck` clean, 152/152 tests pass, `npm run build` clean (chunk-size warning pre-existing). CI `Validate` passed; `Codex Review` skipped as expected (public-repo / private-action policy, see Day 2 blocker). Merged with `--merge` (not squash) per the upstream-sync convention to preserve upstream SHAs (`22d60e7`, `cbd7a02`, `8042463`, `63890f5`, `0af2640`, `068757b`) on `main`.
+- **Close-keyword scan on incoming commits: clean.** No `Fixes #N` keywords on the upstream merge, so no fork issue auto-closed (the trap that bit us during the Day-2 sync did not recur).
+- **#18 status comment.** Noted the sync brought in upstream PRs #16/#19/#20; upstream #8 and #12 remain open and were not pulled — issue stays open as the watcher.
+
+### In Progress
+
+None — sync landed, working tree clean.
+
+### Open
+
+- **#5** Initial deploy to Richwood CF (QA) — needs Cloudflare credentials + naming decisions
+- **#6** Smoke a CMA session end-to-end — depends on #5
+- **#12** Wire deploy workflows — drafts stashed on `wip/deploy-workflows-issue-12`; needs CF creds + env config
+- **#13** Enable Codex PR review — double-blocked (public-repo + action disabled org-wide); hold for rw-meta rework
+- **#18** Tracker: do not merge upstream PRs #8 / #12 as-is
+
+### Blockers
+
+Unchanged from Day 2: deploy track gates on user-provided Cloudflare credentials; Codex review is double-blocked pending the rw-meta rework.
+
+### Notes from this session
+
+- **No new traps surfaced.** This sync was the smoothest yet: the thin-fork posture made the merge mechanical, the close-keyword scan caught nothing, and CI passed first try. The documented workflow in `docs/upstream-sync.md` and the existing memory entries (`upstream-sync-merge-commit`, `thin-fork-posture`) covered every decision point — nothing to update.
+- **Untracked workspace noise.** A pile of `*\ 2.{md,yml,ts,js}` files (Finder/iCloud-style duplicates of synced rw-meta resources and a few Richwood-owned files) is sitting untracked in `.claude/`, `.github/`, and root. Predates this session; not committed. Worth a separate cleanup pass — likely just delete them all once we confirm none diverge from the originals.
+
+### Next Steps
+
+- **#5 (QA deploy)** still the biggest unlocker — unchanged from Day 2.
+- **Workspace cleanup** — delete the `* 2.{md,yml,ts,js}` duplicates after confirming they're verbatim copies. Quick, no dependencies.
+- **`/standards`** label sync — still on the list; still a good no-dep warm-up.
+- Watch upstream PRs #8 and #12; update #18 when either resolves.
