@@ -1,6 +1,10 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "claude-managed-agents-control-plane",
+  // Richwood fork: worker + binding resource names follow the Richwood
+  // `{project}-{env}` convention so they slot into the rest of the
+  // portfolio. Upstream ships as `claude-managed-agents-control-plane`.
+  // See RICHWOOD.md → Naming for the rationale.
+  "name": "cma-runtime-qa",
   "main": "src/index.ts",
   "compatibility_date": "2026-05-18",
   "compatibility_flags": ["nodejs_compat"],
@@ -23,10 +27,13 @@
   // the inbox-side of the email tools (send still works if EMAIL_FROM /
   // SEND_EMAIL are configured).
 
-  // "vars": {
-  //   "EMAIL_DOMAIN": "",
-  //   "EMAIL_FROM": "",
-  // },
+  "vars": {
+    // Richwood-owned: identifies the deploy environment in /health
+    // responses. Matches the worker-name suffix (qa, prod). The
+    // upstream EMAIL_DOMAIN / EMAIL_FROM stubs remain commented above —
+    // forks deploying with email enabled should add them here.
+    "ENVIRONMENT": "qa",
+  },
 
   // Static assets — Vite-built React + Kumo UI. The frontend is a SPA, so
   // unmatched paths fall back to /index.html and react-router takes over
@@ -38,6 +45,14 @@
       "/api/*",
       "/webhooks",
       "/ws/*",
+      // Richwood deploy health check. Without this, browser-navigation
+      // requests to /health would fall through to the SPA shell
+      // (`not_found_handling: single-page-application` serves
+      // /index.html for unmatched routes) and return HTML 200 instead
+      // of the worker's JSON. The CI `curl` check would still pass,
+      // but a human in a browser would see the React app — which
+      // defeats the point of the endpoint.
+      "/health",
       // OpenAPI spec at the conventional root path so CLI / agent
       // tooling can probe `/openapi.json` directly.
       "/openapi.json",
@@ -59,11 +74,11 @@
   "kv_namespaces": [
     {
       "binding": "SECRETS",
-      "id": "36d8189b626e417d985f3887906f089a",
+      "id": "",
     },
     {
       "binding": "EGRESS_POLICIES",
-      "id": "65f3f44ccbca4f08bc87f02055ae29b1",
+      "id": "",
     },
   ],
   // D1: webhook events + session metadata. `database_id` is patched on
@@ -72,8 +87,8 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "claude-managed-agents-db",
-      "database_id": "1f0a864c-282d-4108-abcc-9f2703d68448",
+      "database_name": "cma-runtime-qa",
+      "database_id": "",
       "migrations_dir": "./migrations",
     },
   ],
@@ -83,7 +98,7 @@
       "class_name": "Sandbox",
       "image": "./Dockerfile",
       "instance_type": "standard-1", // change this for larger or smaller containers
-      "name": "claude-managed-agents-sandbox",
+      "name": "cma-runtime-qa-sandbox",
       "max_instances": 100, // change this for more concurrent agents
       // 30-minute grace period for active sessions during a rollout — gives
       // an in-flight agent run time to wind down before the old container
@@ -143,7 +158,10 @@
   "r2_buckets": [
     {
       "binding": "BACKUP_BUCKET",
-      "bucket_name": "claude-managed-agents-snapshots",
+      // Create with `wrangler r2 bucket create cma-runtime-snapshots-qa`
+      // before first deploy. No ensure-r2 script analogous to
+      // scripts/ensure-{kv,d1}.mjs; tracked as a candidate to add.
+      "bucket_name": "cma-runtime-snapshots-qa",
     },
   ],
   // Email Routing send_email binding for `email_send`. Configure

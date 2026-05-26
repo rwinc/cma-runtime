@@ -38,5 +38,10 @@ declare namespace Cloudflare {
     // catch-all route. When unset, unroutable mail is dropped after
     // logging.
     EMAIL_FORWARD?: string;
+
+    // Richwood-owned deploy-environment label (qa, prod). Set in
+    // wrangler.jsonc `vars`. Optional here so types still compile
+    // before `npm run cf-typegen` regenerates worker-configuration.d.ts.
+    ENVIRONMENT?: string;
   }
 }
