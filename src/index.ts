@@ -37,6 +37,20 @@ export default {
   ): Promise<Response> {
     const url = new URL(request.url);
 
+    // Richwood deploy health check. Returns `{ status, environment,
+    // timestamp }` so the deploy-qa.yml / deploy-production.yml
+    // HEALTH_URL step (and operators with curl) can verify a new
+    // rollout actually answered before tagging the deploy green.
+    // Not in /api/* because it's deployment infra, not application
+    // routing — sits alongside /webhooks and /openapi.json.
+    if (url.pathname === "/health" && request.method === "GET") {
+      return Response.json({
+        status: "ok",
+        environment: env.ENVIRONMENT ?? "unknown",
+        timestamp: new Date().toISOString(),
+      });
+    }
+
     if (url.pathname === "/webhooks" && request.method === "POST") {
       return handleWebhook(request, env);
     }
