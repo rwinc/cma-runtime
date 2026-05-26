@@ -166,6 +166,20 @@ jobs:
           GITHUB_NPM_TOKEN: ${{ secrets.NPM_PKG_TOKEN }}
           GITHUB_PACKAGES_TOKEN: ${{ secrets.NPM_PKG_TOKEN }}
 
+      # ── Build (runs prebuild → ensure-kv/ensure-d1/sync-vpc/copy-redoc, then vite) ──
+      # cma-runtime fork: the deploy path depends on `npm run build`. The
+      # `prebuild` script populates the empty KV/D1 IDs in wrangler.jsonc
+      # (via the ensure-* scripts) and the build step itself produces
+      # `public/` for the worker's static-asset binding. Without this,
+      # wrangler validation rejects the empty IDs and the deploy ships
+      # without assets. Mirrors what `npm run deploy` does locally.
+      - name: Build (prebuild + vite)
+        working-directory: ${{ steps.layout.outputs.api_dir }}
+        run: npm run build
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+
       # ── D1 migrations (before deploy) ───────────────────────────────────
       # cma-runtime fork: WORKER_ENV is intentionally unset (top-level
       # wrangler.jsonc IS the QA config). Pass `--env` only when set,
@@ -181,6 +195,7 @@ jobs:
           fi
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
 
       # ── Deploy Worker ────────────────────────────────────────────────────
       # cma-runtime fork: removed `if: env.WORKER_ENV != ''` guard since
@@ -196,6 +211,7 @@ jobs:
           fi
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
 
       # ── Build + Deploy Pages frontend ────────────────────────────────────
       - name: Build frontend
@@ -215,6 +231,9 @@ jobs:
           workingDirectory: ${{ steps.layout.outputs.web_dir }}
 
       # ── Health check ─────────────────────────────────────────────────────
+      # cma-runtime fork: fails the deploy job if /health doesn't return
+      # 200 after 5 attempts. Upstream template emits a warning and exits
+      # 0, which let bad deploys ship green — defeats the point.
       - name: Health check
         if: env.HEALTH_URL != ''
         run: |
@@ -225,4 +244,5 @@ jobs:
             echo "Attempt $i: HTTP $STATUS, retrying..."
             sleep $((i * 2))
           done
-          echo "::warning::Health check failed — verify manually"
+          echo "::error::Health check failed after 5 attempts — last status was $STATUS"
+          exit 1
