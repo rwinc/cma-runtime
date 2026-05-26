@@ -9,6 +9,9 @@ name: Deploy QA
 on:
   push:
     branches: [develop]
+  # Manual trigger so we can redeploy QA without forcing a no-op commit
+  # (e.g. to pick up rotated secrets or rerun after a transient failure).
+  workflow_dispatch:
 
 concurrency:
   group: deploy-qa
