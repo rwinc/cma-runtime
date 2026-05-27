@@ -158,7 +158,7 @@ Unchanged from Day 2: deploy track gates on user-provided Cloudflare credentials
 - **QA worker actually deployed and verified.** Two GH-Actions Deploy QA runs went green end-to-end:
   - [run 26462123473](https://github.com/rwinc/cma-runtime/actions/runs/26462123473) (16:46 UTC) — triggered by the `gh api PATCH refs/heads/develop` we did to FF develop to the merged PR #28 sha. **Refs PATCHed via API fire push events** — useful (and slightly surprising) consequence.
   - [run 26473539533](https://github.com/rwinc/cma-runtime/actions/runs/26473539533) (20:33 UTC) — triggered by the PR #29 merge.
-  Both runs: CI Checks → Build (prebuild + vite) → D1 migrations → Deploy Worker → Health check, all ✅. The org-level `CLOUDFLARE_API_TOKEN` resolves in CI, GH runner Docker built and pushed the Sandbox container image to CF's private registry (`registry.cloudflare.com/.../cma-runtime-qa-sandbox:1f4c829f`), wrangler deployed cleanly. Container app `cma-runtime-qa-sandbox` healthy at 11 instances. R2 bucket `cma-runtime-snapshots-qa` exists. `/health` returns `200 {status:"ok",environment:"qa",timestamp:...}` at `https://cma-runtime-qa.richwood.workers.dev/health`. Closes **#5**.
+    Both runs: CI Checks → Build (prebuild + vite) → D1 migrations → Deploy Worker → Health check, all ✅. The org-level `CLOUDFLARE_API_TOKEN` resolves in CI, GH runner Docker built and pushed the Sandbox container image to CF's private registry (`registry.cloudflare.com/.../cma-runtime-qa-sandbox:1f4c829f`), wrangler deployed cleanly. Container app `cma-runtime-qa-sandbox` healthy at 11 instances. R2 bucket `cma-runtime-snapshots-qa` exists. `/health` returns `200 {status:"ok",environment:"qa",timestamp:...}` at `https://cma-runtime-qa.richwood.workers.dev/health`. Closes **#5**.
 - **Worker secret roster filled.** All four required secrets per upstream README §Step 2 are set on `cma-runtime-qa`: `ANTHROPIC_API_KEY`, `ANTHROPIC_ENVIRONMENT_KEY`, `ENVIRONMENT_ID`, `WEBHOOK_SECRET`. First attempt at `ENVIRONMENT_ID` used a bare UUID the user found on the Anthropic Platform Console env page — Anthropic rejected it with "must begin with `env_`". Correct format is the `env_01...` ULID, visible on the env detail page itself. Worth remembering: Anthropic uses typed prefixes + base32 ULIDs (`env_01...`, `agent_011C...`, `sesn_016y...`), not bare UUIDs.
 - **End-to-end CMA session smoke completed.** Created session `sesn_016yGhmhLaHyuVuQz49ATGHR` via `POST https://cma-runtime-qa.richwood.workers.dev/api/sessions` with `{"agent":"agent_011CZuz8wyHtQtJc65C7DP2D"}` (the existing "Agent Dev Assistant" agent on the QA env). Anthropic returned 200; the worker proxy auto-injected `environment_id`. The inbound `session.created` webhook arrived at `/webhooks` and was signature-verified (WEBHOOK_SECRET correct); D1 cached `(sessionId, agentId, backend=microvm)`. Container DO is `stopped` (no agent input yet) but every plumbing layer is exercised. Closes **#6**.
 - **Closed #12 (Wire deploy workflows).** QA half done; spawned **#30** for the prod-half follow-up. #30 captures why prod can't just clone the QA workflow — `ensure-kv.mjs` / `ensure-d1.mjs` only read top-level wrangler.jsonc, so QA-as-top-level + naive `--env production` would clobber the QA worker on push-to-main. Three options laid out in the issue (two top-level files, env blocks + script patch, separate account).
@@ -192,3 +192,46 @@ None on this side — Tardis integration work is in-flight in the tardis repo.
 - **Tardis service-binding integration** is the next visible win — watch the tardis side for the binding wiring + first cross-worker call from Tardis to `cma-runtime-qa`.
 - **Workflow improvement candidate**: the deploy-qa.yml body customization (handle empty `WORKER_ENV`) is generally useful for any rw-meta consumer that doesn't use wrangler env blocks. Worth upstreaming to rw-meta's shared template.
 
+---
+
+## 2026-05-27 — Day 5: Prod deploy wiring + provisioning
+
+### Completed
+
+- **Prod deploy wired (option #1 from #30 — narrowest delta).** PR #32 (squash `e20cd54` into develop) landed three changes:
+  - `wrangler.prod.jsonc` — paired top-level prod config (`cma-runtime-prod` for worker / D1 / R2 / container, `vars.ENVIRONMENT: "prod"`, KV/D1 IDs reset to `""` for first-deploy auto-provisioning).
+  - `.github/workflows/deploy-production.yml` — rw-meta-synced template, with one Richwood-only step at the top of the deploy job: `cp wrangler.prod.jsonc wrangler.jsonc` before any wrangler/prebuild step runs. Zero changes to the upstream `ensure-{kv,d1}.mjs` and `sync-vpc-bindings.mjs` scripts — they regex-parse top-level config, so they see prod values once the swap is done. Triggers on push to `main` + `workflow_dispatch`. Closes **#30**.
+  - `CLAUDE.md` — Richwood file map, divergence table, Deploy section, and the existing ensure-script known trap all updated to document the two-top-level-config posture and cp-swap convention.
+- **Prod resources provisioned (everything the workflow doesn't auto-create on first deploy).**
+  - R2 bucket `cma-runtime-snapshots-prod` — created via `wrangler r2 bucket create` (no ensure-r2 script exists).
+  - Anthropic prod environment created on the Anthropic Platform Console; `ENVIRONMENT_ID = env_01MjU7FGmLCyUnsBk9HGGLsh`. Distinct from QA's `env_01Ua7VMazPMZZLu3BysQzAcN` — verified before setting to avoid conflating QA + prod at the upstream layer.
+  - All four core worker secrets on `cma-runtime-prod`: `ANTHROPIC_API_KEY`, `ANTHROPIC_ENVIRONMENT_KEY`, `ENVIRONMENT_ID`, `WEBHOOK_SECRET`. Same `wrangler secret put`-creates-stub-worker pattern as Day 4 — the deploy will overwrite the stub with the real code-bearing worker.
+  - `production` GitHub environment required-reviewer set to `sethstoll7` via API, `prevent_self_review: false` to avoid the Day-1 solo-deadlock pattern. Standalone confirmation: `protection_rules[0].type: required_reviewers`, `reviewers: [sethstoll7 (id 10286204)]`.
+- **Release PR #33 (develop → main) opened.** Rolls `900bd2d` (#29), `aa3a089` (#31), `e20cd54` (#32) onto main. On merge, push:main fires `Deploy Production` and pauses at the env gate for explicit approval before the first prod deploy.
+- **PM issue rwinc/pm#83 filed.** Proposes lifting the `WORKER_ENV`-empty guard from our deploy-qa.yml customization into rw-meta's shared template. Filed for visibility per Day 4 EOD note; PM decides on inclusion.
+
+### In Progress
+
+- **PR #33 awaiting merge + first prod deploy approval.** Once merged, `Deploy Production` will fire and hold at the env gate. The user-driven approval click is the next step.
+
+### Open
+
+- **#13** Enable Codex PR review — still double-blocked (public-repo + rw-meta action disabled org-wide).
+- **#18** Tracker: do not merge upstream PRs #8 / #12 as-is — still watching.
+
+### Blockers
+
+- **#13 (Codex)** still on hold pending rw-meta rework — no movement on the upstream side this session.
+
+### Notes from this session
+
+- **R2 snapshot secrets are unset on _both_ workers — not a regression, a pre-existing gap.** Reviewer flagged on PR #33: `wrangler secret list` shows only the four core secrets on `cma-runtime-prod` AND `cma-runtime-qa`. The four MicroVM-snapshot secrets (`R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `BACKUP_BUCKET_NAME`, `CLOUDFLARE_ACCOUNT_ID`) per README §Step 5 / §Secrets table are not set on either. Consequence: first prod deploy will pass `/health` (worker boot + JSON response only — doesn't exercise persistence), but MicroVM snapshot/restore will fail the moment a session attempts persistence. Same was true for QA — Day 4's end-to-end smoke kept the Container DO in `stopped` state, so the snapshot path wasn't exercised. Action: defer until first MicroVM session is intentionally run; mint an R2 API token (Cloudflare dashboard → R2 → Manage R2 API Tokens) and push the four secrets to each worker before then.
+- **`wrangler secret list --name <worker>` works against a stub worker** (no Worker code deployed yet) — same shape as the Day-4 finding that `wrangler secret put --name <non-existent-worker>` creates the stub. Useful for verifying secret state pre-first-deploy.
+- **`git user.name = rwis2` is the local display name; the GH identity is `sethstoll7` (id `10286204`).** Worth knowing when scripting GH API calls — `gh api /users/rwis2` 404s.
+- **Cross-checker workflow worked well this session.** Independent review on PR #32 (no defects) and PR #33 (caught the MicroVM snapshot-secret gap that the PR's own preflight list didn't mention). Confirms the value of a second-pass agent before approving infrastructure changes.
+
+### Next Steps
+
+- **Merge PR #33, approve the pending production deployment.** First prod end-to-end is the immediate goal.
+- **R2 snapshot secrets** — mint a per-bucket R2 API token, push the four secrets to both `cma-runtime-qa` and `cma-runtime-prod`. Block any MicroVM session attempt until done; until then, sessions must be Isolate-backed.
+- **Day 6 (or Day 5 addendum)** — capture the actual prod deploy run + health verification once it lands.
