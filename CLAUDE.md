@@ -41,17 +41,18 @@ The detailed sync workflow lives in [`docs/upstream-sync.md`](./docs/upstream-sy
 
 Look here for customizations and Richwood context. Everything else is upstream's:
 
-| Path                    | Purpose                                                   |
-| ----------------------- | --------------------------------------------------------- |
-| `CLAUDE.md`             | This file — agent guardrails                              |
-| `RICHWOOD.md`           | Fork ownership, Richwood README addendum                  |
-| `.claude/`              | Skills, commands, and agent tooling synced from `rw-meta` |
-| `.github/`              | Richwood PR/issue templates and workflows                 |
-| `.github/CODEOWNERS`    | Review routing                                            |
-| `.prettierignore`       | Keeps the local Prettier hook off upstream-owned files    |
-| `commitlint.config.js`  | Conventional Commits enforcement                          |
-| `.husky/`               | Git hooks — commit-msg runs `commitlint`                  |
-| `docs/upstream-sync.md` | Thin-fork sync workflow                                   |
+| Path                    | Purpose                                                                                                                      |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `CLAUDE.md`             | This file — agent guardrails                                                                                                 |
+| `RICHWOOD.md`           | Fork ownership, Richwood README addendum                                                                                     |
+| `.claude/`              | Skills, commands, and agent tooling synced from `rw-meta`                                                                    |
+| `.github/`              | Richwood PR/issue templates and workflows                                                                                    |
+| `.github/CODEOWNERS`    | Review routing                                                                                                               |
+| `.prettierignore`       | Keeps the local Prettier hook off upstream-owned files                                                                       |
+| `commitlint.config.js`  | Conventional Commits enforcement                                                                                             |
+| `.husky/`               | Git hooks — commit-msg runs `commitlint`                                                                                     |
+| `docs/upstream-sync.md` | Thin-fork sync workflow                                                                                                      |
+| `wrangler.prod.jsonc`   | Production wrangler config (paired with QA's `wrangler.jsonc`); cp-swapped over `wrangler.jsonc` by the prod deploy workflow |
 
 If a file isn't in this table or the next one, treat it as upstream-owned and leave it alone unless absolutely necessary.
 
@@ -59,12 +60,13 @@ If a file isn't in this table or the next one, treat it as upstream-owned and le
 
 These are upstream-owned files that carry a small Richwood delta. Each one is a candidate to upstream — when touching them, first ask whether the change could land at `cloudflare/claude-managed-agents` instead.
 
-| Path                              | Richwood delta                                                                                                                                                                                                                                                   |
-| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `wrangler.jsonc`                  | Worker / D1 / R2 / container names renamed to `cma-runtime-qa` (upstream ships `claude-managed-agents-*`). Adds `vars.ENVIRONMENT`. KV/D1 IDs reset to `""` placeholders per the file's own comments — upstream had real IDs leaked in (see Day 1 PR-15 review). |
-| `src/index.ts`                    | Adds a `/health` route alongside upstream's `/webhooks` and `/openapi.json` — required by rw-meta deploy standards.                                                                                                                                              |
-| `src/env.d.ts`                    | Adds optional `ENVIRONMENT?: string` type for the wrangler-vars value.                                                                                                                                                                                           |
-| `.github/workflows/deploy-qa.yml` | rw-meta-synced template, customized body: deploy + migrations steps handle the case where `WORKER_ENV` is unset (this fork uses top-level config, not env blocks).                                                                                               |
+| Path                                      | Richwood delta                                                                                                                                                                                                                                                   |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `wrangler.jsonc`                          | Worker / D1 / R2 / container names renamed to `cma-runtime-qa` (upstream ships `claude-managed-agents-*`). Adds `vars.ENVIRONMENT`. KV/D1 IDs reset to `""` placeholders per the file's own comments — upstream had real IDs leaked in (see Day 1 PR-15 review). |
+| `src/index.ts`                            | Adds a `/health` route alongside upstream's `/webhooks` and `/openapi.json` — required by rw-meta deploy standards.                                                                                                                                              |
+| `src/env.d.ts`                            | Adds optional `ENVIRONMENT?: string` type for the wrangler-vars value.                                                                                                                                                                                           |
+| `.github/workflows/deploy-qa.yml`         | rw-meta-synced template, customized body: deploy + migrations steps handle the case where `WORKER_ENV` is unset (this fork uses top-level config, not env blocks).                                                                                               |
+| `.github/workflows/deploy-production.yml` | rw-meta-synced template, customized body: copies `wrangler.prod.jsonc` over `wrangler.jsonc` before any wrangler/prebuild step (the upstream `ensure-{kv,d1}.mjs` scripts only read top-level config). Same `WORKER_ENV`-empty guard as the QA workflow.         |
 
 ## Decision context
 
@@ -85,10 +87,11 @@ The ADR captures:
 - **Don't rewrite upstream files** unless there's no other path. New behavior goes in new files.
 - **Don't touch `README.md`** — that's upstream. Use `RICHWOOD.md` for Richwood-specific docs.
 - **Tests**: `npm test` runs Vitest against the worker pool. Run before pushing.
-- **Deploys**: `npm run deploy` (terminal flow) or git-based via the Deploy to Cloudflare button. Production deploys belong to the Richwood Cloudflare account.
-  - **QA is the default.** Top-level `wrangler.jsonc` is the QA config (`name: cma-runtime-qa`). `npm run deploy` and `wrangler deploy` (no `--env` flag) target QA.
-  - **No env blocks.** The fork intentionally does not use `[env.qa]` / `[env.production]` because `scripts/ensure-kv.mjs` and `scripts/ensure-d1.mjs` only read top-level config — env blocks would silently de-sync resource auto-provisioning. See the known trap below.
-  - **Production is not yet wired.** `deploy-production.yml` is deferred until either prod gets its own top-level config (separate file or fork) or the ensure scripts learn about env blocks. Pushing to `main` does not deploy.
+- **Deploys**: `npm run deploy` (terminal flow) or git-based via the deploy workflows. Both environments live in the Richwood Cloudflare account.
+  - **QA is the default.** Top-level `wrangler.jsonc` is the QA config (`name: cma-runtime-qa`). `npm run deploy` and `wrangler deploy` (no `--env` flag) target QA. CI: `.github/workflows/deploy-qa.yml` deploys on push to `develop`.
+  - **Prod uses a paired top-level config.** `wrangler.prod.jsonc` is the prod variant (`name: cma-runtime-prod`). `.github/workflows/deploy-production.yml` copies it over `wrangler.jsonc` as its first step, then runs the same build/migrations/deploy sequence. Trigger: push to `main` or manual `workflow_dispatch`. The `production` GitHub environment is the place to add required-reviewers for prod gating.
+  - **No env blocks.** The fork intentionally does not use `[env.qa]` / `[env.production]` because `scripts/ensure-kv.mjs` and `scripts/ensure-d1.mjs` only read top-level config — env blocks would silently de-sync resource auto-provisioning. The two-file posture is the workaround. See the known trap below.
+  - **Local prod deploys** (rare; prod ships via CI) need a manual `cp wrangler.prod.jsonc wrangler.jsonc` before `npm run deploy`. Don't commit the swap.
 
 ## Known traps
 
@@ -98,7 +101,7 @@ Non-obvious failure modes surfaced in past sessions. Read before changing config
 - **Upstream and this fork have overlapping PR numbers.** GitHub numbers PRs per-repo. `#8` in this fork is `CLAUDE.md`; `#8` upstream (`cloudflare/claude-managed-agents`) is a security PR. Always cite `repo#N` in commits, comments, and reviews — bare `#N` causes real cross-repo confusion. Hit when reviewer findings on upstream PRs were mistaken for findings on our fork.
 - **`git merge upstream/main` can auto-close fork issues via `Fixes #N` in upstream commit messages.** GitHub parses close keywords using _this repo's_ numbering when commits land on the default branch, regardless of which repo authored the commit. An upstream commit whose body ends with `Fixes #14` (referring to upstream's `#14`) will close the fork's `#14` when the merge commit lands on `main`. Same root cause as the PR-number trap above — different surface. After every `git merge upstream/main`, scan `git log --grep='[FfCc][il][xo]es\? #' main..upstream/main` (or just the incoming commit list) for close keywords and reopen anything that auto-closed by mistake. Hit during the 2026-05-22 sync: our `#14` (commitlint wiring) was incorrectly closed by upstream commit `8eef70b` ("Fixes #14" → upstream's cf-tools fixture issue).
 - **This repo is public — it cannot consume private `rwinc/meta` actions or reusable workflows.** GitHub Actions blocks a public repo from resolving an action in another, private repo, regardless of that repo's org access-level setting (`organization` access covers private/internal callers only — a public caller is excluded by design, since a fork could otherwise exfiltrate private action source). The symptom is `Unable to resolve action 'rwinc/meta', not found` at the runner's "Prepare actions" step. Any rw-meta-synced workflow that calls `rwinc/meta/.github/actions/...` (e.g. `codex-pr-review.yml`) is inert here until either rw-meta's relevant path is public or the action is mirrored somewhere public. Hit verifying #13 (Codex PR review). Note this is separate from whether the action _works_: the rw-meta `codex-review` action was also disabled org-wide on 2026-04-20.
-- **`scripts/ensure-kv.mjs` and `scripts/ensure-d1.mjs` only read top-level `wrangler.jsonc` — not env blocks.** Both scripts regex-parse the file looking for `name`, `d1_databases[0].database_name`, and `kv_namespaces[*].binding`. They have no notion of `[env.qa]` / `[env.production]`. If you add env blocks and use `wrangler deploy --env qa`, the worker deploys under the env-block name but the ensure scripts will try to adopt/create resources under the **top-level** name — silently splitting the deployment across two names. That's why this fork uses top-level-as-QA and defers production until the scripts learn env semantics (or until prod gets its own top-level file). Hit while planning the first QA deploy (#5).
+- **`scripts/ensure-kv.mjs` and `scripts/ensure-d1.mjs` only read top-level `wrangler.jsonc` — not env blocks.** Both scripts regex-parse the file looking for `name`, `d1_databases[0].database_name`, and `kv_namespaces[*].binding`. They have no notion of `[env.qa]` / `[env.production]`. If you add env blocks and use `wrangler deploy --env qa`, the worker deploys under the env-block name but the ensure scripts will try to adopt/create resources under the **top-level** name — silently splitting the deployment across two names. The fork works around this by keeping two top-level configs (`wrangler.jsonc` for QA, `wrangler.prod.jsonc` for prod) and having the prod workflow cp-swap the prod variant over `wrangler.jsonc` at deploy time. Hit while planning the first QA deploy (#5).
 
 ## When to look elsewhere
 

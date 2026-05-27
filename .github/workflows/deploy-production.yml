@@ -1,41 +1,50 @@
-# Richwood — QA Deploy
-# Triggered on push to develop. Runs CI checks, then deploys.
+# Richwood — Production Deploy
+# Triggered on push to main, plus manual workflow_dispatch.
+# Runs CI checks, then deploys.
 #
 # Configure per project by editing the env block below.
 # Synced from rw-meta/shared. Edit the env block in project repos only.
+#
+# Richwood / cma-runtime delta: this fork carries TWO top-level wrangler
+# config files (`wrangler.jsonc` = QA, `wrangler.prod.jsonc` = prod)
+# instead of `[env.qa]` / `[env.production]` blocks. Reason: the upstream
+# `scripts/ensure-{kv,d1}.mjs` scripts regex-parse top-level config only.
+# This workflow's first deploy-job step copies the prod config over
+# `wrangler.jsonc` so every downstream tool sees a QA-shaped file with
+# prod values. The runner workspace is ephemeral — the swap is discarded
+# after the job. See CLAUDE.md → Deploy.
 
-name: Deploy QA
+name: Deploy Production
 
 on:
   push:
-    branches: [develop]
-  # Manual trigger so we can redeploy QA without forcing a no-op commit
-  # (e.g. to pick up rotated secrets or rerun after a transient failure).
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
-  group: deploy-qa
+  group: deploy-production
   cancel-in-progress: false  # don't cancel in-progress deploys
 
 # ─── PROJECT CONFIG (cma-runtime) ────────────────────────────────────────────
-# This fork uses the top-level wrangler.jsonc as QA (worker name
-# `cma-runtime-qa`), not wrangler env blocks — see CLAUDE.md → Deploy.
-# WORKER_ENV stays unset so the deploy step omits `--env` and falls back
-# to top-level config; the workflow body has a small `if -n WORKER_ENV`
-# guard to support both modes.
+# This fork uses two top-level wrangler config files — `wrangler.prod.jsonc`
+# IS the production config (worker name `cma-runtime-prod`). The deploy
+# job copies it over `wrangler.jsonc` before any wrangler step. WORKER_ENV
+# stays unset; the workflow body has a small `if -n WORKER_ENV` guard to
+# support both modes.
 env:
-  DEPLOY_ENV: qa
+  DEPLOY_ENV: prod
   NODE_VERSION: "22"
 
-  # WORKER_ENV intentionally unset — top-level wrangler.jsonc is QA.
+  # WORKER_ENV intentionally unset — wrangler.prod.jsonc is the top-level
+  # prod config after the cp-swap.
 
-  D1_DATABASE: cma-runtime-qa
+  D1_DATABASE: cma-runtime-prod
 
   # No Pages frontend — assets are served via Workers static-asset
-  # binding (see wrangler.jsonc `assets`). PAGES_PROJECT / VITE_API_URL
+  # binding (see wrangler.prod.jsonc `assets`). PAGES_PROJECT / VITE_API_URL
   # stay unset.
 
-  HEALTH_URL: https://cma-runtime-qa.richwood.workers.dev
+  HEALTH_URL: https://cma-runtime-prod.richwood.workers.dev
 
 # ─── WORKFLOW ─────────────────────────────────────────────────────────────────
 
@@ -69,11 +78,11 @@ jobs:
         run: npm test --if-present
 
   deploy:
-    name: Deploy to QA
+    name: Deploy to Production
     needs: ci
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    environment: qa
+    environment: production
 
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
@@ -91,6 +100,25 @@ jobs:
         run: npm ci
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.NPM_PKG_TOKEN }}
+
+      # ── Swap in the prod wrangler config ─────────────────────────────────
+      # Richwood / cma-runtime: the upstream ensure-{kv,d1}.mjs and
+      # sync-vpc-bindings.mjs scripts only read top-level wrangler.jsonc.
+      # Copying prod over the QA config here lets every downstream tool
+      # work without modification — prebuild scripts auto-provision prod
+      # KV/D1 under `cma-runtime-prod-*` names, and `wrangler deploy`
+      # ships the prod worker. The runner workspace is ephemeral, so the
+      # swap is discarded after the job — wrangler.jsonc stays as QA in
+      # the repo.
+      - name: Use wrangler.prod.jsonc as wrangler.jsonc
+        run: |
+          if [ ! -f wrangler.prod.jsonc ]; then
+            echo "::error::wrangler.prod.jsonc missing — cannot configure prod deploy"
+            exit 1
+          fi
+          cp wrangler.prod.jsonc wrangler.jsonc
+          echo "Swapped in wrangler.prod.jsonc; worker name:"
+          grep -E '^\s*"name"\s*:' wrangler.jsonc | head -1
 
       # ── Detect project layout ────────────────────────────────────────────
       # Finds wrangler.toml (Worker dir) and vite.config.* (frontend dir)
@@ -172,10 +200,10 @@ jobs:
       # ── Build (runs prebuild → ensure-kv/ensure-d1/sync-vpc/copy-redoc, then vite) ──
       # cma-runtime fork: the deploy path depends on `npm run build`. The
       # `prebuild` script populates the empty KV/D1 IDs in wrangler.jsonc
-      # (via the ensure-* scripts) and the build step itself produces
-      # `public/` for the worker's static-asset binding. Without this,
-      # wrangler validation rejects the empty IDs and the deploy ships
-      # without assets. Mirrors what `npm run deploy` does locally.
+      # (via the ensure-* scripts — which now see the prod-shaped file
+      # because of the cp-swap above) and the build step itself produces
+      # `public/` for the worker's static-asset binding. Mirrors what
+      # `npm run deploy` does locally.
       - name: Build (prebuild + vite)
         working-directory: ${{ steps.layout.outputs.api_dir }}
         run: npm run build
@@ -185,8 +213,9 @@ jobs:
 
       # ── D1 migrations (before deploy) ───────────────────────────────────
       # cma-runtime fork: WORKER_ENV is intentionally unset (top-level
-      # wrangler.jsonc IS the QA config). Pass `--env` only when set,
-      # so projects using env blocks still work via the same template.
+      # wrangler.jsonc — populated from wrangler.prod.jsonc above — IS
+      # the prod config). Pass `--env` only when set, so projects using
+      # env blocks still work via the same template.
       - name: Apply D1 migrations
         if: env.D1_DATABASE != ''
         working-directory: ${{ steps.layout.outputs.api_dir }}
@@ -203,7 +232,7 @@ jobs:
       # ── Deploy Worker ────────────────────────────────────────────────────
       # cma-runtime fork: removed `if: env.WORKER_ENV != ''` guard since
       # the worker deploys under the top-level wrangler.jsonc config
-      # when WORKER_ENV is unset.
+      # (populated from wrangler.prod.jsonc above) when WORKER_ENV is unset.
       - name: Deploy Worker
         working-directory: ${{ steps.layout.outputs.api_dir }}
         run: |
