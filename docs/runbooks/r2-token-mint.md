@@ -85,13 +85,12 @@ The Cloudflare-account constraints don't change: wrangler still can't mint R2 to
 
 ## Why we don't script the mint
 
-If you are tempted to automate the dashboard step:
+The Day 5 attempt established two facts: the dedicated `/accounts/{id}/r2/tokens` endpoint returns 404, and the only working REST path (`/accounts/{id}/tokens`) requires an account-specific permission-group list. That list was not pinned down — the dashboard worked, was faster, and is known-good. Two reasons not to invest in scripting until something changes:
 
-- The generic `/accounts/{id}/tokens` endpoint requires a permission-group list specific to R2 object I/O. Cloudflare publishes these IDs in their account API but they are versioned and not stable across API revisions.
-- The `R2.Token` permission group is the relevant one but its ID has shifted in the past; pinning it in a script means the script breaks silently when Cloudflare rotates IDs, and the failure mode is "token mint with overly broad scope" — exactly the failure we want to avoid.
-- The dashboard form gates against the same risks (it picks the right permission group + scopes to the bucket you select). Until Cloudflare ships a documented, stable token-mint API path, the dashboard is the safer surface.
+- Scripting needs the correct permission-group selection. Guessing wrong risks minting over-broad tokens (for example, account-wide R2 admin instead of object I/O on one bucket) — the failure mode we most want to avoid.
+- This procedure runs a few times a year. Dashboard mint takes under a minute. Automation cost-benefit is poor.
 
-If this changes — Cloudflare publishes a stable token-mint API or `wrangler` ships an `r2 token` subcommand — update this runbook.
+If `wrangler` ships an `r2 token` subcommand, or Cloudflare publishes a stable documented mint API for R2, update this runbook.
 
 ---
 
