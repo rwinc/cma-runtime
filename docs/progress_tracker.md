@@ -275,3 +275,40 @@ None on this side — the prod deploy is live.
 - **Rotate the temp R2 keys** (carried from Day 5) — same instruction; the dashboard-mint + user-shell-set path is the only one available given the OAuth scope limits documented above. Runbook: [`docs/runbooks/r2-token-mint.md`](./runbooks/r2-token-mint.md).
 - **First MicroVM session smoke** once R2 keys are real — exercises the end-to-end snapshot/restore path that Day 4's QA smoke and today's prod smoke both skipped (`/health` doesn't touch R2).
 - **Tardis service-binding integration** (carried) — watch the tardis side for the binding wiring + first cross-worker call against either `cma-runtime-qa` (already live) or `cma-runtime-prod` (now live).
+
+---
+
+## 2026-05-28 — Day 6: R2 token-mint runbook
+
+### Completed
+
+- **Day 5 addendum (PR #35) merged.** Started the day by squash-merging the in-flight Day 5 addendum into develop (`eacfaf5`). Four stale local branches deleted, four remote tracking refs pruned, the leftover worktree from the Day 5 prod-deploy work removed.
+- **R2 token-mint runbook shipped (PR #37, `13ab522`).** Issue #36 filed, scoped, planned, built, checked, shipped, review-fixed, and squash-merged to develop in one session. New runbook at `docs/runbooks/r2-token-mint.md` (98 lines) covering: why-this-exists (OAuth scope gap, REST 404, generic-token-API path exists but unscripted in this org), an up-front "run from your own shell" auto-mode-classifier callout, dashboard mint procedure (least-privilege: `Object Read & Write` + `Specify bucket` + per-env tokens), exact `wrangler secret put` commands naming `cma-runtime-qa` and `cma-runtime-prod` literally, verification, generalization for future Worker projects, and an honest "why we don't script the mint" section. Cross-references added in `CLAUDE.md` Known traps, a new `## Runbooks` section in `RICHWOOD.md`, and a forward link from the "Rotate the temp R2 keys" next-step above. First runbook in `docs/runbooks/`.
+- **Two evidence-discipline catches on one PR.** The /dev4 fresh-reader walkthrough caught two unverified claims I'd written into the runbook's "Why we don't script the mint" section — assertions that R2 permission-group IDs were "versioned and not stable" and that the `R2.Token` group ID "had shifted in the past." Neither claim was in the Day 5 addendum source. Fixed in `af8cf8c` before PR creation. Then PR #37 review (P2) caught a second pattern: four sites overstating the operational constraint as "the dashboard is the only documented path" / "requires the Cloudflare dashboard." Cloudflare's [R2 token API docs](https://developers.cloudflare.com/r2/api/tokens/) document the generic-token API path including R2 bucket resources and permission groups (e.g. `Workers R2 Storage Bucket Item Write`). What we know from this org is only that the permission-group selection wasn't pinned down in-session — not that the path is undocumented. Tightened in `3d32a81` across the runbook (three places) and `CLAUDE.md` (one), and updated `reference-r2-token-mint-dashboard` memory to match.
+
+### In Progress
+
+None — PR #37 merged before EOD.
+
+### Open
+
+- **#13** Enable Codex PR review — still double-blocked (public-repo + rw-meta action disabled org-wide). Unchanged.
+- **#18** Tracker: do not merge upstream PRs #8 / #12 / #15 as-is — unchanged.
+
+### Blockers
+
+- **#13 (Codex)** unchanged.
+
+### Notes from this entry
+
+- **"Closes #N" on a develop-targeting PR doesn't auto-close — Day 5 lesson confirmed.** PR #37 had `Closes #36.` in its body but #36 stayed `OPEN` after the squash-merge to develop; close-keywords fire only when commits land on the default branch (main). Same trap that bit #30 yesterday. Closed #36 manually with a merge-SHA citation. The pattern is now recurring enough that any develop-targeted PR with a close-keyword should expect to manually close on merge — or wait for the develop→main release-PR to do it.
+- **`gh pr edit --add-reviewer` hits the same classic-projects GraphQL deprecation as `--body`.** The Day 5 addendum captured the `--body` failure mode; today the reviewer-add path failed identically. Both routes touch `repository.pullRequest.projectCards` and gh treats the deprecation warning as fatal. REST workaround for reviewers: `POST /repos/.../pulls/N/requested_reviewers`. Subtle gotcha: `gh api -f reviewers='["franksaysno"]'` flattens the JSON array to a string (`422 "not an array"`); correct form is `--input -` with `{"reviewers":["..."]}` on stdin. The previous memory entry (`feedback-gh-pr-edit-graphql-deprecation`) was scoped to `--body`; broadened today to cover any `gh pr edit` subcommand that hits classic-projects metadata.
+- **EnterWorktree's `fresh` baseRef branches from origin/main, not from current HEAD.** Hit when starting the runbook work on a branch off develop — the worktree's auto-named branch was based on `origin/main` (`706c9ba`) not develop (`eacfaf5`). Workaround inside the worktree: `git reset --hard origin/develop && git branch -m <real-name>`. Future develop-based work in a worktree either expects the manual reset, or the harness needs `worktree.baseRef: head` set in settings.
+- **`gh pr merge --delete-branch` aborts cleanup on local-update errors.** When the local `develop` is checked out elsewhere (typical when working in a worktree), `gh pr merge --squash --delete-branch` performs the squash on the remote, then errors on `fatal: 'develop' is already checked out at ...` and never gets to the `--delete-branch` step. Remote branch stays alive. Workaround: explicit `gh api -X DELETE repos/OWNER/REPO/git/refs/heads/<branch>` after the merge succeeds.
+
+### Next Steps
+
+- **Rotate the temp R2 keys** (carried) — runbook is now in develop; the actual dashboard mint + `wrangler secret put` flow runs from your shell. Unblocks the first MicroVM session smoke.
+- **First MicroVM session smoke** once R2 keys are real (carried).
+- **/dev6 VALIDATE on #36** — 2-minute walkthrough of the Cloudflare R2 dashboard form to confirm the runbook's `Object Read & Write` / `Specify bucket` labels match what's actually shown. Folds naturally into the rotation work whenever it happens. Will land as a follow-up PR if labels need updating.
+- **Tardis service-binding integration** (carried).
