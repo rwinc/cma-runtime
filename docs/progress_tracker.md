@@ -272,6 +272,6 @@ None on this side — the prod deploy is live.
 
 ### Next Steps
 
-- **Rotate the temp R2 keys** (carried from Day 5) — same instruction; the dashboard-mint + user-shell-set path is the only one available given the OAuth scope limits documented above.
+- **Rotate the temp R2 keys** (carried from Day 5) — same instruction; the dashboard-mint + user-shell-set path is the only one available given the OAuth scope limits documented above. Runbook: [`docs/runbooks/r2-token-mint.md`](./runbooks/r2-token-mint.md).
 - **First MicroVM session smoke** once R2 keys are real — exercises the end-to-end snapshot/restore path that Day 4's QA smoke and today's prod smoke both skipped (`/health` doesn't touch R2).
 - **Tardis service-binding integration** (carried) — watch the tardis side for the binding wiring + first cross-worker call against either `cma-runtime-qa` (already live) or `cma-runtime-prod` (now live).

@@ -48,6 +48,12 @@ rwinc/tardis (orchestrator)
 
 Tardis dispatches agent sessions to this control plane. This repo's job is to run those sessions on Cloudflare — sandboxes, egress controls, observability — and emit normalized events back to Tardis.
 
+## Runbooks
+
+Operational procedures for working with the deployed runtime. More will land here as they're encoded.
+
+- [`docs/runbooks/r2-token-mint.md`](./docs/runbooks/r2-token-mint.md) — mint a Cloudflare R2 API token via the dashboard (wrangler can't) and rotate the keys onto the `cma-runtime-qa` / `cma-runtime-prod` workers.
+
 ## For agents working in this repo
 
 Read **`CLAUDE.md`** first. It encodes the thin-fork posture, upstream sync workflow, and conventions in a form designed for agent consumption.
