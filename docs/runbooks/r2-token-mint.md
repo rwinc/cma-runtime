@@ -4,14 +4,14 @@ How to mint a Cloudflare R2 API token and rotate the resulting keys onto the cma
 
 ## Why this exists
 
-The path to mint an R2 API token is non-obvious:
+The operational path to mint an R2 API token in this project is non-obvious:
 
-- `wrangler` has no `r2 token` subcommand.
+- `wrangler` has no `r2 token` subcommand (verify with `wrangler r2 --help`).
 - The dedicated `/accounts/{id}/r2/tokens` REST endpoint returns 404.
 - The OAuth scopes wrangler holds (`account read`, `workers write`, `d1 write`, `workers_kv write`, etc.) do not include R2-admin or API-token-management.
-- The generic `/accounts/{id}/tokens` endpoint works but needs an account-specific list of permission groups — a 30-minute rabbit hole.
+- The documented generic-token path exists — Cloudflare's [R2 token API docs](https://developers.cloudflare.com/r2/api/tokens/) cover token creation via the generic `/accounts/{id}/tokens` endpoint with R2 bucket resources and R2 permission groups (e.g. `Workers R2 Storage Bucket Item Write`). The Day 5 attempt did not pin down the exact permission-group selection in-session because the dashboard was faster.
 
-**The dashboard is the path of record.** Discovered the hard way on 2026-05-27 while wiring the first prod deploy; this runbook encodes that lesson so the next person doesn't re-discover it.
+**The dashboard is this project's recommended operational path** unless and until someone deliberately scripts the documented generic-token API with the right token-create permissions and R2 permission groups. Discovered while wiring the first prod deploy on 2026-05-27; this runbook encodes the operational choice so the next person doesn't re-investigate.
 
 ## ⚠ Run this from your own shell
 
@@ -81,16 +81,16 @@ The procedure above generalizes. Substitute:
 - Bucket names → your project's R2 buckets.
 - Token name → `<project>-<env>-<purpose>`.
 
-The Cloudflare-account constraints don't change: wrangler still can't mint R2 tokens, the REST endpoint still 404s, the dashboard is still the only documented path. Skip the rabbit hole.
+The Cloudflare-account constraints don't change: wrangler still can't mint R2 tokens, the dedicated `/accounts/{id}/r2/tokens` REST endpoint still 404s, and the documented generic-token-API path remains unscripted in this org. Use the dashboard unless your project has a reason to invest in the scripting work (see the "Why we don't script the mint" section below).
 
 ## Why we don't script the mint
 
-The Day 5 attempt established two facts: the dedicated `/accounts/{id}/r2/tokens` endpoint returns 404, and the only working REST path (`/accounts/{id}/tokens`) requires an account-specific permission-group list. That list was not pinned down — the dashboard worked, was faster, and is known-good. Two reasons not to invest in scripting until something changes:
+The path exists — Cloudflare's [R2 token API docs](https://developers.cloudflare.com/r2/api/tokens/) cover token creation against the generic `/accounts/{id}/tokens` endpoint with R2 bucket resources and R2 permission groups (e.g. `Workers R2 Storage Bucket Item Write`). The Day 5 session did not pin down the exact permission-group selection because the dashboard was the faster operational path. Two reasons we haven't gone back to script it:
 
-- Scripting needs the correct permission-group selection. Guessing wrong risks minting over-broad tokens (for example, account-wide R2 admin instead of object I/O on one bucket) — the failure mode we most want to avoid.
-- This procedure runs a few times a year. Dashboard mint takes under a minute. Automation cost-benefit is poor.
+- Scripting still needs the correct permission-group selection. Guessing wrong risks minting over-broad tokens (for example, account-wide R2 admin instead of object I/O on one bucket) — the failure mode we most want to avoid. The dashboard form gates this implicitly.
+- This procedure runs a few times a year. Dashboard mint takes under a minute. Automation cost-benefit is poor for this project.
 
-If `wrangler` ships an `r2 token` subcommand, or Cloudflare publishes a stable documented mint API for R2, update this runbook.
+If `wrangler` ships an `r2 token` subcommand, or someone in this org invests in scripting the documented generic-token-API path with the right permission groups, update this runbook.
 
 ---
 
