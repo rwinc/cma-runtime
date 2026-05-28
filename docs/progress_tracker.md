@@ -233,6 +233,45 @@ None on this side — Tardis integration work is in-flight in the tardis repo.
 
 ### Next Steps
 
-- **Merge PR #33, approve the pending production deployment.** First prod end-to-end is the immediate goal.
 - **Rotate the temp R2 keys** — mint an R2 API token in the CF dashboard (read+write on `cma-runtime-snapshots-{qa,prod}`) and `wrangler secret put R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` on each worker to overwrite the `TEMP-ROTATE-` placeholders. Required before any MicroVM session attempts snapshot/restore; until then, sessions must be Isolate-backed.
-- **Day 6 (or Day 5 addendum)** — capture the actual prod deploy run + health verification once it lands.
+
+---
+
+## 2026-05-27 — Day 5 (addendum): First prod deploy verified
+
+(Same calendar date as Day 5; the wiring/provisioning work landed earlier in the afternoon, the merge + approval + verification later in the same session.)
+
+### Completed
+
+- **Reviewer fixes on the Day 5 entry shipped.** Second-opinion review on PR #33 caught three issues in the Day 5 tracker entry; PR #34 carried the fixes through to develop (squash `67434e8e`): "Closes #30" softened to "Implements #30 (closes on develop→main merge)" since #30 only auto-closes on default-branch merge; the Day-4 "Both runs" paragraph restructured as a third sub-bullet to survive Prettier reflow (was sitting at 4-space indent after my Day 5 edits, attaching it to the wrong parent); Day 5's #18 reference broadened to match the actual issue title (#8 / #12 / #15) with a parenthetical noting #15 is already resolved.
+- **`Closes #30.` added to PR #33's body via REST PATCH.** `gh pr edit --body` choked on a classic-projects-deprecation GraphQL warning (treated as fatal by gh); `gh api -X PATCH repos/.../pulls/33 -f body=...` worked. With the close-keyword in place, GitHub auto-closed #30 the moment #33's merge commit landed on main.
+- **PR #33 merged to main as merge-commit `706c9ba`.** Preserved the four squash SHAs (`129a98b` #28, `900bd2d` #29, `aa3a089` #31, `e20cd54` #32, plus `67434e8e` #34) on main individually. Issue #30 auto-closed at 18:12 UTC.
+- **First prod deploy approved + ran green end-to-end.** Approved via REST API (`POST /repos/.../actions/runs/26529809342/pending_deployments` with `state: approved`) — same effect as the GH-UI approval click but scriptable. Total deploy time: 12m29s. Job sequence: CI Checks → cp-swap (`cp wrangler.prod.jsonc wrangler.jsonc`) → npm ci → build (`prebuild` → `ensure-kv.mjs` auto-created `cma-runtime-prod-SECRETS` + `cma-runtime-prod-EGRESS_POLICIES`; `ensure-d1.mjs` auto-created D1 `cma-runtime-prod` (`655b0901-76d0-4151-80f3-a2e03fa8e076`); vite produced `public/`) → D1 migrations apply → Sandbox container image build/push → `wrangler deploy` (created worker + container app) → health check.
+- **Prod live and verified.** `https://cma-runtime-prod.richwood.workers.dev/health` returns `200 {"status":"ok","environment":"prod","timestamp":"2026-05-27T18:25:13.145Z"}`. Worker, D1, both KV namespaces, container app `cma-runtime-prod-sandbox`, and R2 bucket `cma-runtime-snapshots-prod` all present under the `cma-runtime-prod-*` namespace.
+- **Workspace cleanup.** Same Finder/iCloud-style `* 2.{yml,md,jsonc}` dupes appeared as on Day 4 cleanup (3 files this time: `CLAUDE 2.md`, `deploy-production 2.yml`, `wrangler.prod 2.jsonc`). Verified diffs: `CLAUDE 2.md` was the pre-Day-5 snapshot (no prod-deploy entries), the other two byte-identical to their sources. All deleted as part of /eod.
+
+### In Progress
+
+None on this side — the prod deploy is live.
+
+### Open
+
+- **#13** Enable Codex PR review — still double-blocked (public-repo + rw-meta action disabled org-wide).
+- **#18** Tracker: do not merge upstream PRs #8 / #12 / #15 as-is — #15 resolved, #8 and #12 still watching.
+
+### Blockers
+
+- **#13 (Codex)** unchanged.
+
+### Notes from this addendum
+
+- **The cp-swap approach validated end-to-end.** Concern at design time was that the upstream `ensure-{kv,d1}.mjs` / `sync-vpc-bindings.mjs` scripts wouldn't behave correctly against the swapped file; they did. After the workflow's first step copied `wrangler.prod.jsonc` over `wrangler.jsonc`, every downstream tool saw a QA-shaped file with prod values and auto-provisioned cleanly under `cma-runtime-prod-*`. Zero changes to upstream scripts, thin-fork posture preserved.
+- **R2 API token minting cannot be done from this session.** Wrangler has no `r2 token` subcommand. The OAuth scopes wrangler holds (`account read`, `workers write`, `d1 write`, `workers_kv write`, etc.) do not include R2-admin or API-token-management. The dedicated `/accounts/{id}/r2/tokens` REST endpoint 404s — R2 token mint goes through the generic Account API Tokens endpoint (`/accounts/{id}/tokens`) which needs an account-specific list of permission groups. Practical path: mint via the dashboard (`R2 → Manage R2 API Tokens → Create token`), then push the keys via `wrangler secret put` from the user's own shell (avoids the auto-mode classifier's prod-write block).
+- **`gh pr edit` is more brittle than `gh api PATCH` for PR-body edits.** GitHub's classic-projects deprecation surfaces as a GraphQL warning that `gh pr edit` treats as fatal (silent edit failure). The REST PATCH path (`gh api -X PATCH repos/.../pulls/N -f body=...`) sidesteps the deprecated GraphQL field entirely. Worth using for any non-trivial PR-body update from automation.
+- **Approving a pending deployment via API leaves a clear audit trail.** The `POST .../pending_deployments` call records the approver, comment, and timestamp on the deployment, same as the GH UI flow. The actor must be in the env's required-reviewers list and `current_user_can_approve` must be `true` (visible via GET on the same endpoint before posting).
+
+### Next Steps
+
+- **Rotate the temp R2 keys** (carried from Day 5) — same instruction; the dashboard-mint + user-shell-set path is the only one available given the OAuth scope limits documented above.
+- **First MicroVM session smoke** once R2 keys are real — exercises the end-to-end snapshot/restore path that Day 4's QA smoke and today's prod smoke both skipped (`/health` doesn't touch R2).
+- **Tardis service-binding integration** (carried) — watch the tardis side for the binding wiring + first cross-worker call against either `cma-runtime-qa` (already live) or `cma-runtime-prod` (now live).
