@@ -48,6 +48,9 @@ env:
 
 # ─── WORKFLOW ─────────────────────────────────────────────────────────────────
 
+permissions:
+  contents: read
+
 jobs:
   ci:
     name: CI Checks
