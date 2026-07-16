@@ -181,10 +181,14 @@ export async function applyEgressPolicy(
       try {
         return await binding.fetch(rewritten);
       } catch (error) {
+        console.error(
+          "egress vpc binding threw:",
+          error instanceof Error ? error.stack : error,
+        );
         return new Response(
           JSON.stringify({
             error: "vpc binding threw",
-            message: error instanceof Error ? error.message : String(error),
+            reason: "upstream binding fetch failed — see worker logs",
           }),
           { status: 502, headers: { "content-type": "application/json" } },
         );
@@ -230,10 +234,14 @@ export async function applyEgressPolicy(
       const entry = worker.getEntrypoint();
       return await entry.fetch(rewritten);
     } catch (error) {
+      console.error(
+        "egress proxy threw:",
+        error instanceof Error ? error.stack : error,
+      );
       return new Response(
         JSON.stringify({
           error: "egress proxy threw",
-          message: error instanceof Error ? error.message : String(error),
+          reason: "proxy worker failed — see worker logs",
         }),
         { status: 502, headers: { "content-type": "application/json" } },
       );
