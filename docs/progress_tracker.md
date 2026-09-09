@@ -312,3 +312,33 @@ None — PR #37 merged before EOD.
 - **First MicroVM session smoke** once R2 keys are real (carried).
 - **/dev6 VALIDATE on #36** — 2-minute walkthrough of the Cloudflare R2 dashboard form to confirm the runbook's `Object Read & Write` / `Specify bucket` labels match what's actually shown. Folds naturally into the rotation work whenever it happens. Will land as a follow-up PR if labels need updating.
 - **Tardis service-binding integration** (carried).
+
+---
+
+## 2026-09-08 — Day 7: Flat-skill cleanup landed
+
+### Completed
+
+- **PR #43 merged to develop (`2e25afc`).** Removes the 41 superseded flat-skill and command copies under `.claude/commands/` and `.claude/skills/` (the Day 1 PR #10 sync) per rwinc/meta#127 — the rw plugin carries them now. Delete-only (+0 / −6,787); no upstream-owned file touched, thin-fork posture unchanged.
+
+### In Progress
+
+None.
+
+### Open
+
+- **#13** and **#18** carry from Day 6 unchanged. No issue state changed today.
+
+### Blockers
+
+- **#13 (Codex)** unchanged.
+
+### Notes from this entry
+
+- This entry came from the PM-driven EOD lane, not a build session in this repo. #43 sits on develop only; it reaches main with the next develop → main release PR (Day 5 pattern).
+- **Held / owed:** nothing for Seth in this repo today.
+- **Worktrees:** none removed. `sec-batch-e` (`fix/codeql-stack-trace-exposure`, PR #41 merged 2026-07-16) left in place — an older lane, not today's.
+
+### Next Steps
+
+- Carry Day 6's list unchanged: rotate the temp R2 keys, first MicroVM session smoke, /dev6 on #36, Tardis service-binding integration.
