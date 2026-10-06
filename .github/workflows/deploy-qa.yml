@@ -35,7 +35,11 @@ env:
   # binding (see wrangler.jsonc `assets`). PAGES_PROJECT / VITE_API_URL
   # stay unset.
 
-  HEALTH_URL: https://cma-runtime-qa.richwood.workers.dev
+  # Worker script name the post-deploy privacy assertion reads back.
+  # Must match `name` in wrangler.jsonc. No HEALTH_URL: the worker has no
+  # public URL (#49), so the template's curl health check is replaced by
+  # the "Assert workers.dev private" step below.
+  WORKER_NAME: cma-runtime-qa
 
 # ─── WORKFLOW ─────────────────────────────────────────────────────────────────
 
@@ -216,6 +220,34 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
 
+      # ── Assert workers.dev private ───────────────────────────────────────
+      # cma-runtime fork (#49, ops#416): the worker is unauthenticated, so
+      # its public workers.dev subdomain and preview URLs must stay off.
+      # wrangler.jsonc pins `workers_dev` / `preview_urls` false; this step
+      # reads the live script setting back from the Cloudflare API and fails
+      # the job unless both are off. It replaces the old curl /health check,
+      # which could only reach the worker through the public subdomain.
+      - name: Assert workers.dev private
+        run: |
+          if [ -z "${CLOUDFLARE_ACCOUNT_ID}" ]; then
+            echo "::error::vars.CLOUDFLARE_ACCOUNT_ID is not set — cannot read the script subdomain setting"
+            exit 1
+          fi
+          URL="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/scripts/${WORKER_NAME}/subdomain"
+          if ! RESP=$(curl -sS --fail-with-body -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "$URL"); then
+            echo "::error::Subdomain read failed for ${WORKER_NAME}: $(echo "$RESP" | jq -c '.errors' 2>/dev/null || echo "$RESP")"
+            exit 1
+          fi
+          echo "Subdomain setting for ${WORKER_NAME}: $(echo "$RESP" | jq -c '.result')"
+          if ! echo "$RESP" | jq -e '.success == true and .result.enabled == false and .result.previews_enabled == false' > /dev/null; then
+            echo "::error::${WORKER_NAME} is not confirmed private — expected enabled=false and previews_enabled=false from the subdomain endpoint"
+            exit 1
+          fi
+          echo "${WORKER_NAME}: workers.dev subdomain and preview URLs are off"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+
       # ── Build + Deploy Pages frontend ────────────────────────────────────
       - name: Build frontend
         if: env.PAGES_PROJECT != '' && steps.layout.outputs.web_dir != ''
@@ -232,20 +264,3 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy dist --project-name=${{ env.PAGES_PROJECT }} --branch=${{ env.PAGES_BRANCH }}
           workingDirectory: ${{ steps.layout.outputs.web_dir }}
-
-      # ── Health check ─────────────────────────────────────────────────────
-      # cma-runtime fork: fails the deploy job if /health doesn't return
-      # 200 after 5 attempts. Upstream template emits a warning and exits
-      # 0, which let bad deploys ship green — defeats the point.
-      - name: Health check
-        if: env.HEALTH_URL != ''
-        run: |
-          sleep 5
-          for i in 1 2 3 4 5; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ env.HEALTH_URL }}/health" || echo "000")
-            if [ "$STATUS" = "200" ]; then echo "Health check passed"; exit 0; fi
-            echo "Attempt $i: HTTP $STATUS, retrying..."
-            sleep $((i * 2))
-          done
-          echo "::error::Health check failed after 5 attempts — last status was $STATUS"
-          exit 1
