@@ -4,6 +4,9 @@
   "type": "module",
   "private": true,
   "description": "Self-hosted Claude Managed Agent control plane on Cloudflare using the Sandbox SDK",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "scripts": {
     "deploy": "npm run build && wrangler deploy",
     "postdeploy": "npm run db:migrate:remote",
