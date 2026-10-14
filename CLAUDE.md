@@ -53,6 +53,7 @@ Look here for customizations and Richwood context. Everything else is upstream's
 | `.husky/`               | Git hooks — commit-msg runs `commitlint`                                                                                     |
 | `docs/upstream-sync.md` | Thin-fork sync workflow                                                                                                      |
 | `wrangler.prod.jsonc`   | Production wrangler config (paired with QA's `wrangler.jsonc`); cp-swapped over `wrangler.jsonc` by the prod deploy workflow |
+| `.nvmrc`                | Node major for local dev boxes (`22`), matching CI and the `engines` floor in `package.json` (#42)                           |
 
 If a file isn't in this table or the next one, treat it as upstream-owned and leave it alone unless absolutely necessary.
 
@@ -67,6 +68,7 @@ These are upstream-owned files that carry a small Richwood delta. Each one is a 
 | `src/env.d.ts`                            | Adds optional `ENVIRONMENT?: string` type for the wrangler-vars value.                                                                                                                                                                                           |
 | `.github/workflows/deploy-qa.yml`         | rw-meta-synced template, customized body: deploy + migrations steps handle the case where `WORKER_ENV` is unset (this fork uses top-level config, not env blocks).                                                                                               |
 | `.github/workflows/deploy-production.yml` | rw-meta-synced template, customized body: copies `wrangler.prod.jsonc` over `wrangler.jsonc` before any wrangler/prebuild step (the upstream `ensure-{kv,d1}.mjs` scripts only read top-level config). Same `WORKER_ENV`-empty guard as the QA workflow.         |
+| `package.json`                            | Adds `"engines": { "node": ">=22.0.0" }` (#42): wrangler >=4.87 and miniflare refuse Node 20, so npm warns `EBADENGINE` at install instead of wrangler failing at first use. No other change; `package-lock.json` is untouched.                                  |
 
 ## Decision context
 
